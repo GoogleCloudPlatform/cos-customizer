@@ -1,0 +1,20 @@
+The testing directory contains COS customizer integration tests.
+
+Each *.yaml file in the top level of the directory corresponds to exactly one
+COS customizer integration test. These *.yaml files are Cloud Build workflow
+definitions, and are intended to be run with the whole COS customizer source.
+For example, to run `smoke_test.yaml`, run
+`gcloud builds submit --config=testing/smoke_test.yaml .` from the COS
+customizer source root.
+
+Directories contain data needed for tests; this usually includes scripts and
+cloud-configs. For the most part, test assertions are made in cloud-configs
+that run on instances made from generated images.
+
+The util directory contains utilities for all tests. For example,
+run_test.wf.json is a Daisy workflow that facilitates running a test.
+vm.wf.json and gpu_vm.wf.json are used by run_test.wf.json for creating a
+normal VM and GPU VM respectively.
+
+To run all tests, use the run_tests.sh script in the COS customizer source
+root.

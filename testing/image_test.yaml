@@ -1,0 +1,51 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the License);
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an AS IS BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+substitutions:
+  "_TEST": "image_test"
+  "_INPUT_IMAGE": "cos-dev-69-10895-0-0"
+  "_INPUT_PROJECT": "cos-cloud"
+steps:
+- name: 'gcr.io/cloud-builders/bazel'
+  args: ["run", "--spawn_strategy=standalone", ":cos_customizer", "--", "--norun"]
+- name: 'bazel:cos_customizer'
+  args: ["start-image-build",
+         "-build-context=testing/${_TEST}",
+         "-image-name=${_INPUT_IMAGE}",
+         "-image-project=${_INPUT_PROJECT}",
+         "-gcs-bucket=${PROJECT_ID}_cloudbuild",
+         "-gcs-workdir=customizer-$BUILD_ID"]
+- name: 'bazel:cos_customizer'
+  args: ["finish-image-build",
+         "-zone=us-west1-b",
+         "-labels=hello=world,test_key=test_value",
+         "-licenses=projects/cos-cloud/global/licenses/cos-gpu",
+         "-disk-size-gb=50",
+         "-project=$PROJECT_ID",
+         "-image-name=preload-test-$BUILD_ID",
+         "-image-family=test-family",
+         "-image-project=$PROJECT_ID"]
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: '/bin/bash'
+  env:
+  - "IMAGE=preload-test-$BUILD_ID"
+  - "PROJECT=$PROJECT_ID"
+  - "LABELS=hello=world;test_key=test_value"
+  - "FAMILY=test-family"
+  - "DISK_SIZE_GB=50"
+  - "LICENSES=https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos-gpu;https://www.googleapis.com/compute/v1/projects/cos-cloud/global/licenses/cos"
+  args: ["/workspace/testing/${_TEST}/run_test.sh"]
+options:
+  machineType: 'N1_HIGHCPU_8'
+timeout: "1500s"

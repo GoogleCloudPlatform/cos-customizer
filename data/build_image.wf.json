@@ -1,0 +1,121 @@
+{
+  "Name": "build-image",
+  "DefaultTimeout": "60m",
+  "Vars": {
+    "source_image": {"Required": true, "Description": "URL of the source image to preload."},
+    "output_image_name": {"Required": true, "Description": "Name of output image."},
+    "output_image_family": {"Value": "", "Description": "Family of output image."},
+    "output_image_project": {"Required": true, "Description": "Project of output image."},
+    "disk_size_gb": {"Value": "10", "Description": "The disk size to use for preloading."},
+    "host_maintenance": {"Value": "MIGRATE", "Description": "VM behavior when there is maintenance."},
+    "user_build_context": {"Required": true, "Description": "GCS URL of the user build context."},
+    "builtin_build_context": {"Required": true, "Description": "GCS URL of the builtin build context."},
+    "state_file": {"Required": true, "Description": "GCS URL of the state file."},
+    "cloud_config": {"Required": true, "Description": "cloud-config file to run."}
+  },
+  "Sources": {
+    "cloud-config": "${cloud_config}",
+    "daisy_ack": "/data/daisy_ack"
+  },
+  "Steps": {
+    "setup": {
+      "CreateDisks": [
+        {
+          "Name": "boot-disk",
+          "SourceImage": "${source_image}",
+          "SizeGb": "${disk_size_gb}"
+        }
+      ]
+    },
+    "run": {
+      "CreateInstances": [
+        {
+          "Name": "preload-vm",
+          "Disks": [{"Source": "boot-disk"}],
+          "guestAccelerators": {{.Accelerators}},
+          "scheduling": {
+            "onHostMaintenance": "${host_maintenance}"
+          },
+          "Metadata": {
+            "UserBuildContext": "${user_build_context}",
+            "BuiltinBuildContext": "${builtin_build_context}",
+            "StateFile": "${state_file}",
+            "DaisyAck": "${SCRATCHPATH}/daisy_ack",
+            "user-data": "${SOURCE:cloud-config}",
+            "block-project-ssh-keys": "TRUE",
+            "cos-update-strategy": "update_disabled"
+          },
+          "Scopes": [
+            "https://www.googleapis.com/auth/devstorage.read_write",
+            "https://www.googleapis.com/auth/cloud-platform"
+          ]
+        }
+      ]
+    },
+    "wait-preload-start": {
+      "WaitForInstancesSignal": [
+        {
+          "Name": "preload-vm",
+          "Interval": "2s",
+          "SerialOutput": {
+            "Port": 3,
+            "SuccessMatch": "BuildStatus:"
+          }
+        }
+      ]
+    },
+    "send-ack": {
+      "CopyGCSObjects": [
+        {
+          "Source": "${SOURCESPATH}/daisy_ack",
+          "Destination": "${SCRATCHPATH}/daisy_ack"
+        }
+      ]
+    },
+    "wait-preload-finished": {
+      "WaitForInstancesSignal": [
+        {
+          "Name": "preload-vm",
+          "Interval": "2s",
+          "SerialOutput": {
+            "Port": 3,
+            "FailureMatch": "BuildFailed:",
+            "SuccessMatch": "BuildSucceeded:",
+            "StatusMatch": "BuildStatus:"
+          }
+        }
+      ]
+    },
+    "wait-vm-shutdown": {
+      "WaitForInstancesSignal": [
+        {
+          "Name": "preload-vm",
+          "Interval": "2s",
+          "Stopped": true
+        }
+      ]
+    },
+    "image": {
+      "CreateImages": [
+        {
+          "RealName": "${output_image_name}",
+          "Project": "${output_image_project}",
+          "NoCleanup": true,
+          "SourceDisk": "boot-disk",
+          "labels": {{.Labels}},
+          "description": "Derivative of ${source_image}.",
+          "family": "${output_image_family}",
+          "licenses": {{.Licenses}}
+        }
+      ]
+    }
+  },
+  "Dependencies": {
+    "run": ["setup"],
+    "wait-preload-start": ["run"],
+    "send-ack": ["wait-preload-start"],
+    "wait-preload-finished": ["send-ack"],
+    "wait-vm-shutdown": ["wait-preload-finished"],
+    "image": ["wait-vm-shutdown"]
+  }
+}

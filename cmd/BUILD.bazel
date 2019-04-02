@@ -1,0 +1,60 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the License);
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an AS IS BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "finish_image_build.go",
+        "flag_vars.go",
+        "install_gpu.go",
+        "run_script.go",
+        "start_image_build.go",
+    ],
+    importpath = "cos-customizer/cmd",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//config:go_default_library",
+        "//fs:go_default_library",
+        "//gce:go_default_library",
+        "//preloader:go_default_library",
+        "@com_github_google_subcommands//:go_default_library",
+        "@com_google_cloud_go//storage:go_default_library",
+        "@org_golang_google_api//compute/v1:go_default_library",
+        "@org_golang_google_api//iterator:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "finish_image_build_test.go",
+        "flag_vars_test.go",
+        "install_gpu_test.go",
+        "run_script_test.go",
+        "start_image_build_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//config:go_default_library",
+        "//fakes:go_default_library",
+        "//fs:go_default_library",
+        "//gce:go_default_library",
+        "@com_github_google_go-cmp//cmp:go_default_library",
+        "@com_github_google_subcommands//:go_default_library",
+        "@com_google_cloud_go//storage:go_default_library",
+        "@org_golang_google_api//compute/v1:go_default_library",
+    ],
+)
