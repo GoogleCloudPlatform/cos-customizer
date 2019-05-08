@@ -13,7 +13,16 @@ Currently, the COS Customizer is intended to be run as part of a
 sequence of Google Cloud Build build steps. No other usage mode is currently
 supported.
 
-[TOC]
+* [Accessing the cos-customizer container image](#accessing-the-cos-customizer-container-image)
+* [Quick Start](#quick-start)
+   * [Minimal example](#minimal-example)
+* [Build Steps](#build-steps)
+   * [Required build steps](#required-build-steps)
+      * [The start-image-build step](#the-start-image-build-step)
+      * [The finish-image-build step](#the-finish-image-build-step)
+   * [Optional build steps](#optional-build-steps)
+      * [run-script](#run-script)
+      * [install-gpu](#install-gpu)
 
 ## Accessing the cos-customizer container image
 
@@ -55,16 +64,16 @@ script `preload.sh`. This results in an image with the custom file
     echo "Hello, World!" > /var/lib/hello
     $ cat cloudbuild.yaml
     steps:
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['start-image-build',
              '-image-name=cos-stable-68-10718-86-0',
              '-image-project=cos-cloud',
              '-gcs-bucket=${PROJECT_ID}_cloudbuild',
              '-gcs-workdir=image-build-$BUILD_ID']
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['run-script',
              '-script=preload.sh']
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['finish-image-build',
              '-zone=us-west1-b',
              '-project=$PROJECT_ID',
@@ -89,7 +98,7 @@ Each build step is invoked as a subcommand of the COS Customizer container
 image; for example, usage of the `run-script` build step works as follows:
 
     ...
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['run-script',
              '-script=preload.sh']
     ...
@@ -154,7 +163,7 @@ Compute Engine's `getFromFamily` API. Mutually exclusive with `-image-name` and
 
 An example `start-image-build` step looks like the following:
 
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['start-image-build',
              '-image-name=cos-stable-68-10718-86-0',
              '-image-project=cos-cloud',
@@ -210,7 +219,7 @@ flag take precedence over labels assigned with this flag.
 
 An example `finish-image-build` step looks like the following:
 
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['finish-image-build',
              '-zone=us-west1-b',
              '-project=$PROJECT_ID',
@@ -239,7 +248,7 @@ script when it is run. Example: `-env=RELEASE=1,FOO=bar`
 
 An example `run-script` step looks like the following:
 
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['run-script',
              '-script=preload.sh']
 
@@ -285,6 +294,6 @@ for a GPU of this type.
 
 An example `install-gpu` step looks like the following:
 
-    - name: 'gcr.io/cos-image-builder/cos-customizer'
+    - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['install-gpu',
              '-version=396.26']
