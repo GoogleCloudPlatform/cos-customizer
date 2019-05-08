@@ -16,8 +16,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "7be7dc01f1e0afdba6c8eb2b43d2fa01c743be1b9273ab1eaf6c233df078d705",
-    url = "https://github.com/bazelbuild/rules_go/releases/download/0.16.5/rules_go-0.16.5.tar.gz",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.3/rules_go-0.18.3.tar.gz"],
+    sha256 = "86ae934bd4c43b99893fc64be9d9fc684b81461581df7ea8fc291c816f5ee8c5",
 )
 
 http_archive(
@@ -28,19 +28,19 @@ http_archive(
 
 http_archive(
     name = "io_bazel_rules_docker",
-    sha256 = "29d109605e0d6f9c892584f07275b8c9260803bf0c6fcb7de2623b2bedc910bd",
-    strip_prefix = "rules_docker-0.5.1",
-    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.5.1.tar.gz"],
+    sha256 = "aed1c249d4ec8f703edddf35cbe9dfaca0b5f5ea6e4cd9e83e99f3b0d1136c3d",
+    strip_prefix = "rules_docker-0.7.0",
+    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.7.0.tar.gz"],
 )
 
 http_archive(
     name = "distroless",
-    sha256 = "f7a6ecfb8174a1dd4713ea3b21621072996ada7e8f1a69e6ae7581be137c6dd6",
-    strip_prefix = "distroless-446923c3756ceeaa75888f52fcbdd48bb314fbf8",
-    urls = ["https://github.com/GoogleContainerTools/distroless/archive/446923c3756ceeaa75888f52fcbdd48bb314fbf8.tar.gz"],
+    sha256 = "87a4d176bf4ceb78f23fe2547cb79dd41b537dcdf477e6da548d3001acb0f47b",
+    strip_prefix = "distroless-a4fd5de337e31911aeee2ad5248284cebeb6a6f4",
+    urls = ["https://github.com/GoogleContainerTools/distroless/archive/a4fd5de337e31911aeee2ad5248284cebeb6a6f4.tar.gz"],
 )
 
-load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 
 go_rules_dependencies()
 
@@ -51,12 +51,15 @@ load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 gazelle_dependencies()
 
 load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_pull",
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
 )
-
 container_repositories()
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_pull",
+)
 
 container_pull(
     name = "daisy",
@@ -69,65 +72,91 @@ load(
     "@io_bazel_rules_docker//go:image.bzl",
     _go_image_repos = "repositories",
 )
-
 _go_image_repos()
 
 go_repository(
     name = "com_github_google_subcommands",
-    commit = "5bae204cdfb2d92dcc333d56014bae6a2f6c58b1",
     importpath = "github.com/google/subcommands",
+    urls = ["https://github.com/google/subcommands/archive/5bae204cdfb2d92dcc333d56014bae6a2f6c58b1.tar.gz"],
+    strip_prefix = "subcommands-5bae204cdfb2d92dcc333d56014bae6a2f6c58b1",
+    sha256 = "459d1f29a8cb6be068196ead8fc485d54cb895afc257aacaa6d0cab49e3e1fe5",
+    type = "tar.gz",
 )
 
 go_repository(
     name = "com_google_cloud_go",
-    commit = "13a5d37070fcb4cc601a650c1bcb95885e3cc776",
     importpath = "cloud.google.com/go",
+    # Archives downloaded from gitiles aren't deterministic, so don't compare
+    # against a fixed sha256 (https://github.com/google/gitiles/issues/84)
+    urls = ["https://code.googlesource.com/gocloud/+archive/13a5d37070fcb4cc601a650c1bcb95885e3cc776.tar.gz"],
+    type = "tar.gz",
 )
 
 go_repository(
     name = "org_golang_google_api",
-    commit = "6142e720c068c6cd71f2258e007ff1991572e1d5",
     importpath = "google.golang.org/api",
+    # Archives downloaded from gitiles aren't deterministic, so don't compare
+    # against a fixed sha256 (https://github.com/google/gitiles/issues/84)
+    urls = ["https://code.googlesource.com/google-api-go-client/+archive/6142e720c068c6cd71f2258e007ff1991572e1d5.tar.gz"],
+    type = "tar.gz",
 )
 
 go_repository(
     name = "org_golang_x_oauth2",
-    commit = "d2e6202438beef2727060aa7cabdd924d92ebfd9",
     importpath = "golang.org/x/oauth2",
+    # Archives downloaded from gitiles aren't deterministic, so don't compare
+    # against a fixed sha256 (https://github.com/google/gitiles/issues/84)
+    urls = ["https://go.googlesource.com/oauth2/+archive/d2e6202438beef2727060aa7cabdd924d92ebfd9.tar.gz"],
+    type = "tar.gz",
 )
 
 go_repository(
     name = "in_gopkg_yaml_v2",
-    commit = "5420a8b6744d3b0345ab293f6fcba19c978f1183",
     importpath = "gopkg.in/yaml.v2",
+    urls = ["https://github.com/go-yaml/yaml/archive/5420a8b6744d3b0345ab293f6fcba19c978f1183.tar.gz"],
+    strip_prefix = "yaml-5420a8b6744d3b0345ab293f6fcba19c978f1183",
+    sha256 = "f7427a3950b795ae9047c3661e67a7a213f1c1ae9b7efdc1759278473b8d436d",
+    type = "tar.gz",
 )
 
 go_repository(
     name = "com_github_googleapis_gax_go",
-    commit = "1ef592c90f479e3ab30c6c2312e20e13881b7ea6",
     importpath = "github.com/googleapis/gax-go",
+    urls = ["https://github.com/googleapis/gax-go/archive/1ef592c90f479e3ab30c6c2312e20e13881b7ea6.tar.gz"],
+    strip_prefix = "gax-go-1ef592c90f479e3ab30c6c2312e20e13881b7ea6",
+    sha256 = "bd724440d39b58ebb61a561c7ec0bb8a419438c0cfac2a5dcb3958d91205119d",
+    type = "tar.gz",
 )
 
 go_repository(
     name = "io_opencensus_go",
-    commit = "7e6c39beca2921a62fe5f9e53773d750822a6d5c",
     importpath = "go.opencensus.io",
+    urls = ["https://github.com/census-instrumentation/opencensus-go/archive/7e6c39beca2921a62fe5f9e53773d750822a6d5c.tar.gz"],
+    strip_prefix = "opencensus-go-7e6c39beca2921a62fe5f9e53773d750822a6d5c",
+    sha256 = "a31bc593100a4eb8f7364e6fa5f359667acb0f90764430f13877bef84e54d2ee",
+    type = "tar.gz",
 )
 
 go_repository(
     name = "com_github_google_go-cmp",
-    commit = "875f8df8b7965f1eac1098d36d677f807ac0b49e",
     importpath = "github.com/google/go-cmp",
+		urls = ["https://github.com/google/go-cmp/archive/875f8df8b7965f1eac1098d36d677f807ac0b49e.tar.gz"],
+		strip_prefix = "go-cmp-875f8df8b7965f1eac1098d36d677f807ac0b49e",
+		sha256 = "ad74121b3d4d27be6a18818d1daeb5258991c01e4634ab322176f83e858701ec",
+		type = "tar.gz",
 )
 
 load(
     "@distroless//package_manager:package_manager.bzl",
     "package_manager_repositories",
+)
+package_manager_repositories()
+
+load(
+    "@distroless//package_manager:dpkg.bzl",
     "dpkg_src",
     "dpkg_list",
 )
-
-package_manager_repositories()
 
 dpkg_src(
     name = "debian_stretch",

@@ -27,11 +27,28 @@ export COS_NVIDIA_INSTALLER_CONTAINER=gcr.io/cos-cloud/cos-gpu-installer:v201811
 export NVIDIA_INSTALL_DIR_CONTAINER=/usr/local/nvidia
 export ROOT_MOUNT_DIR=/root
 
+pull_installer() {
+  local docker_code
+  local i=1
+  while [[ $i -le 10 ]]; do
+    echo "Pulling cos-gpu-installer container image... [${i}/10]"
+    docker pull "${COS_NVIDIA_INSTALLER_CONTAINER}" && break || docker_code="$?"
+    i=$((i+1))
+  done
+  if [[ $i -eq 11 ]]; then
+    echo "Pulling cos-gpu-installer failed."
+    echo "Docker journal logs:"
+    journalctl -u docker.service --no-pager
+    exit "${docker_code}"
+  fi
+  echo "Successfully pulled cos-gpu-installer container image."
+}
 
 main() {
   mkdir -p "${NVIDIA_INSTALL_DIR_HOST}"
   mount --bind "${NVIDIA_INSTALL_DIR_HOST}" "${NVIDIA_INSTALL_DIR_HOST}"
   mount -o remount,exec "${NVIDIA_INSTALL_DIR_HOST}"
+  pull_installer
   docker run \
     --rm \
     --privileged \
