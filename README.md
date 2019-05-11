@@ -297,3 +297,12 @@ An example `install-gpu` step looks like the following:
     - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['install-gpu',
              '-version=396.26']
+
+
+# Contributor Docs
+
+## Releasing
+
+To release a new version of COS Customizer, tag the commit you want to release
+with the date in the form of `vYYYYMMDD`. This will trigger a Cloud Build job to
+build and release the container image.

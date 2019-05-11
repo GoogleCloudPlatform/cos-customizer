@@ -14,15 +14,16 @@
 
 steps:
 - name: 'gcr.io/cloud-builders/bazel'
-  args: ["test", "--spawn_strategy=standalone", "..."]
+  args: ['test', '--spawn_strategy=standalone', '...']
 - name: 'gcr.io/cloud-builders/bazel'
-  args: ["run", "--spawn_strategy=standalone", ":cos_customizer", "--", "--norun"]
+  args: ['run', '--spawn_strategy=standalone', ':cos_customizer', '--', '--norun']
 - name: 'gcr.io/cloud-builders/docker'
-  args: ["tag", "bazel:cos_customizer", "gcr.io/${PROJECT_ID}/cos-customizer:${COMMIT_SHA}"]
+  args: ['tag', 'bazel:cos_customizer', 'gcr.io/${_OUTPUT_PROJECT}/cos-customizer:${TAG_NAME}']
 - name: 'gcr.io/cloud-builders/docker'
-  args: ["tag", "bazel:cos_customizer", "gcr.io/${PROJECT_ID}/cos-customizer:latest"]
+  args: ['tag', 'bazel:cos_customizer', 'gcr.io/${_OUTPUT_PROJECT}/cos-customizer:latest']
 options:
   machineType: 'N1_HIGHCPU_8'
+  substitutionOption: 'MUST_MATCH'
 images:
-- 'gcr.io/${PROJECT_ID}/cos-customizer:${COMMIT_SHA}'
-- 'gcr.io/${PROJECT_ID}/cos-customizer:latest'
+- 'gcr.io/${_OUTPUT_PROJECT}/cos-customizer:${TAG_NAME}'
+- 'gcr.io/${_OUTPUT_PROJECT}/cos-customizer:latest'
