@@ -181,9 +181,20 @@ func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSp
 	return w.Name(), nil
 }
 
+func sanitize(output *config.Image) {
+	var licenses []string
+	for _, l := range output.Licenses {
+		if l != "" {
+			licenses = append(licenses, l)
+		}
+	}
+	output.Licenses = licenses
+}
+
 // daisyArgs computes the parameters to the cos-customizer Daisy workflow (//data/build_image.wf.json)
 // and uploads dependencies to GCS.
 func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *config.Image, output *config.Image, buildSpec *config.Build) ([]string, error) {
+	sanitize(output)
 	toUpload := []string{
 		files.UserBuildContextArchive,
 		files.BuiltinBuildContextArchive,
