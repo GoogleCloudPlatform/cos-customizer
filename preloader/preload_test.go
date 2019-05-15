@@ -269,6 +269,20 @@ func TestDaisyArgsWorkflowTemplate(t *testing.T) {
 			want:        []byte("[\"license-1\",\"license-2\"]"),
 		},
 		{
+			testName:    "EmptyStringLicense",
+			outputImage: &config.Image{&compute.Image{Licenses: []string{""}}, ""},
+			buildConfig: &config.Build{GCSBucket: "bucket"},
+			workflow:    []byte("{{.Licenses}}"),
+			want:        []byte("null"),
+		},
+		{
+			testName:    "OneEmptyLicense",
+			outputImage: &config.Image{&compute.Image{Licenses: []string{"license-1", ""}}, ""},
+			buildConfig: &config.Build{GCSBucket: "bucket"},
+			workflow:    []byte("{{.Licenses}}"),
+			want:        []byte("[\"license-1\"]"),
+		},
+		{
 			testName:    "Labels",
 			outputImage: &config.Image{&compute.Image{Labels: map[string]string{"key": "value"}}, ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
