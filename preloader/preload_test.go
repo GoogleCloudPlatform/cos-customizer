@@ -283,6 +283,13 @@ func TestDaisyArgsWorkflowTemplate(t *testing.T) {
 			want:        []byte("[\"license-1\"]"),
 		},
 		{
+			testName:    "URLLicense",
+			outputImage: &config.Image{&compute.Image{Licenses: []string{"https://www.googleapis.com/compute/v1/projects/my-proj/global/licenses/my-license"}}, ""},
+			buildConfig: &config.Build{GCSBucket: "bucket"},
+			workflow:    []byte("{{.Licenses}}"),
+			want:        []byte("[\"projects/my-proj/global/licenses/my-license\"]"),
+		},
+		{
 			testName:    "Labels",
 			outputImage: &config.Image{&compute.Image{Labels: map[string]string{"key": "value"}}, ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
