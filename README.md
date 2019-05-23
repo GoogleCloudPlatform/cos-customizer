@@ -13,16 +13,16 @@ Currently, the COS Customizer is intended to be run as part of a
 sequence of Google Cloud Build build steps. No other usage mode is currently
 supported.
 
-* [Accessing the cos-customizer container image](#accessing-the-cos-customizer-container-image)
-* [Quick Start](#quick-start)
-   * [Minimal example](#minimal-example)
-* [Build Steps](#build-steps)
-   * [Required build steps](#required-build-steps)
-      * [The start-image-build step](#the-start-image-build-step)
-      * [The finish-image-build step](#the-finish-image-build-step)
-   * [Optional build steps](#optional-build-steps)
-      * [run-script](#run-script)
-      * [install-gpu](#install-gpu)
+*   [Accessing the cos-customizer container image](#accessing-the-cos-customizer-container-image)
+*   [Quick Start](#quick-start)
+    *   [Minimal example](#minimal-example)
+*   [Build Steps](#build-steps)
+    *   [Required build steps](#required-build-steps)
+        *   [The start-image-build step](#the-start-image-build-step)
+        *   [The finish-image-build step](#the-finish-image-build-step)
+    *   [Optional build steps](#optional-build-steps)
+        *   [run-script](#run-script)
+        *   [install-gpu](#install-gpu)
 
 ## Accessing the cos-customizer container image
 
@@ -208,8 +208,9 @@ installing GPU drivers requires that GPU quota is available in this zone.
 `-labels`: Key-value pairs to apply to the output image as image labels.
 Example: `-labels=cos_image=true,milestone=65`
 
-`-licenses`: A list of licenses to apply to the output image. Example:
-`-licenses=license1,license2`
+`-licenses`: A list of licenses to apply to the output image. License names must
+be formatted as `projects/{project}/global/licenses/{license}`. Example:
+`-licenses=projects/cos-cloud/global/licenses/cos`
 
 `-inherit-labels`: If present, the output image will be assigned the exact same
 image labels present on the source image. The labels specified by the `-labels`
@@ -297,7 +298,6 @@ An example `install-gpu` step looks like the following:
     - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['install-gpu',
              '-version=396.26']
-
 
 # Contributor Docs
 

@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"cos-customizer/config"
@@ -185,7 +186,7 @@ func sanitize(output *config.Image) {
 	var licenses []string
 	for _, l := range output.Licenses {
 		if l != "" {
-			licenses = append(licenses, l)
+			licenses = append(licenses, strings.TrimPrefix(l, "https://www.googleapis.com/compute/v1/"))
 		}
 	}
 	output.Licenses = licenses
