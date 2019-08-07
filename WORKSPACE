@@ -38,9 +38,9 @@ http_archive(
 
 http_archive(
     name = "distroless",
-    sha256 = "87a4d176bf4ceb78f23fe2547cb79dd41b537dcdf477e6da548d3001acb0f47b",
-    strip_prefix = "distroless-a4fd5de337e31911aeee2ad5248284cebeb6a6f4",
-    urls = ["https://github.com/GoogleContainerTools/distroless/archive/a4fd5de337e31911aeee2ad5248284cebeb6a6f4.tar.gz"],
+    sha256 = "14834aaf9e005b9175de2cfa2b420c80778880ee4d9f9a9f7f385d3b177abff7",
+    strip_prefix = "distroless-fa0765cc86064801e42a3b35f50ff2242aca9998",
+    urls = ["https://github.com/GoogleContainerTools/distroless/archive/fa0765cc86064801e42a3b35f50ff2242aca9998.tar.gz"],
 )
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
