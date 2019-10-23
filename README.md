@@ -298,6 +298,10 @@ An example `install-gpu` step looks like the following:
     - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['install-gpu',
              '-version=396.26']
+             
+Note that when using an image customized with `install-gpu`, the hosted
+docker container should be set to run in privileged mode so that it has
+access to the GPU device on the host machine.
 
 # Contributor Docs
 
