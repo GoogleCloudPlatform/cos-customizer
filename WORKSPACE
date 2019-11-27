@@ -66,7 +66,7 @@ load(
 
 container_pull(
     name = "daisy",
-    digest = "sha256:ffbd78eb5390a6fd7be43ec393d8f1e1a6448ea1bad23787f47028f3ada48926",
+    digest = "sha256:a23774074d5941ed9e25f64ee7e02f96d2f8e09a4d7cee7131b49664267c33c7",
     registry = "gcr.io",
     repository = "compute-image-tools/daisy",
 )
@@ -143,10 +143,10 @@ go_repository(
 go_repository(
     name = "com_github_google_go-cmp",
     importpath = "github.com/google/go-cmp",
-		urls = ["https://github.com/google/go-cmp/archive/875f8df8b7965f1eac1098d36d677f807ac0b49e.tar.gz"],
-		strip_prefix = "go-cmp-875f8df8b7965f1eac1098d36d677f807ac0b49e",
-		sha256 = "ad74121b3d4d27be6a18818d1daeb5258991c01e4634ab322176f83e858701ec",
-		type = "tar.gz",
+    urls = ["https://github.com/google/go-cmp/archive/875f8df8b7965f1eac1098d36d677f807ac0b49e.tar.gz"],
+    strip_prefix = "go-cmp-875f8df8b7965f1eac1098d36d677f807ac0b49e",
+    sha256 = "ad74121b3d4d27be6a18818d1daeb5258991c01e4634ab322176f83e858701ec",
+    type = "tar.gz",
 )
 
 load(
