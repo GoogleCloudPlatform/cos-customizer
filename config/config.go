@@ -67,6 +67,7 @@ type Build struct {
 	Zone      string
 	DiskSize  int
 	GPUType   string
+	Timeout   string
 }
 
 // Save serializes the given struct as JSON and writes it out.

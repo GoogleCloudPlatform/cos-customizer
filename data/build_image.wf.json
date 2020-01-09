@@ -1,6 +1,5 @@
 {
   "Name": "build-image",
-  "DefaultTimeout": "60m",
   "Vars": {
     "source_image": {"Required": true, "Description": "URL of the source image to preload."},
     "output_image_name": {"Required": true, "Description": "Name of output image."},

@@ -247,6 +247,8 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 		buildSpec.Project,
 		"-zone",
 		buildSpec.Zone,
+		"-default_timeout",
+		buildSpec.Timeout,
 		daisyWorkflow,
 	)
 	return args, nil

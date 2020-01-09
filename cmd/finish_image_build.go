@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"time"
 
 	"cos-customizer/config"
 	"cos-customizer/fs"
@@ -45,6 +46,7 @@ type FinishImageBuild struct {
 	licenses       *listVar
 	inheritLabels  bool
 	diskSize       int
+	timeout        string
 }
 
 // Name implements subcommands.Command.Name.
@@ -93,9 +95,14 @@ func (f *FinishImageBuild) SetFlags(flags *flag.FlagSet) {
 		"labels.")
 	flags.IntVar(&f.diskSize, "disk-size-gb", 0, "The disk size to use when creating the image in GB. Value of '0' "+
 		"indicates the default size.")
+	flags.StringVar(&f.timeout, "timeout", "60m", "Timeout value of the image build process. Must be formatted "+
+		"according to Golang's time.Duration string format.")
 }
 
 func (f *FinishImageBuild) validate() error {
+	if _, err := time.ParseDuration(f.timeout); err != nil {
+		return fmt.Errorf("'timeout' value is invalid: %q", err)
+	}
 	switch {
 	case f.imageName == "" && f.imageSuffix == "":
 		return fmt.Errorf("one of 'image-name' or 'image-suffix' must be set")
@@ -130,6 +137,7 @@ func (f *FinishImageBuild) loadConfigs(files *fs.Files) (*config.Image, *config.
 	buildConfig.Project = f.project
 	buildConfig.Zone = f.zone
 	buildConfig.DiskSize = f.diskSize
+	buildConfig.Timeout = f.timeout
 	outputImageConfig := config.NewImage(imageName, f.imageProject)
 	outputImageConfig.Labels = f.labels.m
 	outputImageConfig.Licenses = f.licenses.l

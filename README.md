@@ -218,6 +218,14 @@ flag take precedence over labels assigned with this flag.
 
 `-disk-size-gb`: The disk size in GB to use when creating the image.
 
+`-timeout`: Timeout value of this step. Must be formatted according to Golang's
+time.Duration string format. Defaults to "60m". Keep in mind that this timeout
+value is different from the overall Cloud Build workflow timeout value, which is
+set at the Cloud Build workflow level. If this timeout value expires, resources
+created during the image build process will be properly cleaned up. If the
+overall Cloud Build workflow timeout expires, the task will be cancelled without
+any opportunity to clean up resources.
+
 An example `finish-image-build` step looks like the following:
 
     - name: 'gcr.io/cos-cloud/cos-customizer'
@@ -298,10 +306,10 @@ An example `install-gpu` step looks like the following:
     - name: 'gcr.io/cos-cloud/cos-customizer'
       args: ['install-gpu',
              '-version=396.26']
-             
-Note that when using an image customized with `install-gpu`, the hosted
-docker container should be set to run in privileged mode so that it has
-access to the GPU device on the host machine.
+
+Note that when using an image customized with `install-gpu`, the hosted docker
+container should be set to run in privileged mode so that it has access to the
+GPU device on the host machine.
 
 # Contributor Docs
 

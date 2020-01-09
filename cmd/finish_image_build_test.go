@@ -169,3 +169,33 @@ func TestDeprecateImages(t *testing.T) {
 		t.Errorf("Image 'old' is not deprecated; deprecated images: %v", gce.Deprecated)
 	}
 }
+
+func TestValidateFailure(t *testing.T) {
+	tests := []struct {
+		name      string
+		flags     []string
+		expectErr bool
+		msg       string
+	}{
+		{
+			name:      "Timeout",
+			flags:     []string{"-project=p", "-zone=z", "-image-name=out", "-image-project=p", "-image-family=f", "-timeout=t"},
+			expectErr: true,
+			msg:       "'timeout' value should be invalid",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tmpDir, files, err := setupFinishBuildFiles()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(tmpDir)
+			gcs := fakes.GCSForTest(t)
+			_, svc := fakes.GCEForTest(t, "p")
+			if _, err := executeFinishBuild(files, svc, gcs.Client, test.flags...); test.expectErr && err == nil {
+				t.Errorf("Got nil, want error; %s", test.msg)
+			}
+		})
+	}
+}
