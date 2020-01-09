@@ -469,6 +469,13 @@ func TestDaisyArgs(t *testing.T) {
 			buildConfig: &config.Build{Zone: "zone", GCSBucket: "bucket", GCSDir: "dir"},
 			want:        []string{"-zone", "zone"},
 		},
+		{
+			testName:    "Timeout",
+			inputImage:  config.NewImage("", ""),
+			outputImage: config.NewImage("", ""),
+			buildConfig: &config.Build{Timeout: "60m", GCSBucket: "bucket", GCSDir: "dir"},
+			want:        []string{"-default_timeout", "60m"},
+		},
 	}
 	gcs := fakes.GCSForTest(t)
 	defer gcs.Close()
