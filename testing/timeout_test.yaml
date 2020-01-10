@@ -18,9 +18,6 @@ steps:
   args:
   - '-c'
   - |
-    if ! gcloud builds submit --config=testing/timeout_test/timeout_test.yaml .; then
-      exit 0
-    else
-      exit 1
-    fi
+    gcloud builds submit --config=testing/timeout_test/timeout_test.yaml . | tee /build.log
+    grep "did not complete within the specified timeout" /build.log > /dev/null
 timeout: '1800s'
