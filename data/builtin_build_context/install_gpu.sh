@@ -23,7 +23,7 @@ set -o errexit
 export NVIDIA_DRIVER_VERSION={{.NvidiaDriverVersion}}
 export NVIDIA_DRIVER_MD5SUM={{.NvidiaDriverMd5sum}}
 export NVIDIA_INSTALL_DIR_HOST={{.NvidiaInstallDirHost}}
-export COS_NVIDIA_INSTALLER_CONTAINER=gcr.io/cos-cloud/cos-gpu-installer:v20190820
+export COS_NVIDIA_INSTALLER_CONTAINER=gcr.io/cos-cloud/cos-gpu-installer:v20200129
 export NVIDIA_INSTALL_DIR_CONTAINER=/usr/local/nvidia
 export ROOT_MOUNT_DIR=/root
 
