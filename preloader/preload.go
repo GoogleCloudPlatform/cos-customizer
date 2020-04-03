@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -106,23 +107,24 @@ func writeCloudConfig(scriptPath string, servicePath string) (string, error) {
 }
 
 // storeInGCS stores the given files in GCS using the given gcsManager.
-// Input files are stored in GCS using their basename. Input files should not have the same
-// basename to avoid collisions.
-func storeInGCS(ctx context.Context, gcs *gcsManager, files []string) error {
-	basenames := make(map[string]bool)
-	for _, file := range files {
-		if _, ok := basenames[filepath.Base(file)]; ok {
-			return fmt.Errorf("storeInGCS: collision in basename %s", filepath.Base(file))
+// Files to store are provided in a map where each key is a file on the local
+// file system and each value is the relative path in GCS at which to store the
+// corresponding key. The provided relative paths in GCS must be unique.
+func storeInGCS(ctx context.Context, gcs *gcsManager, files map[string]string) error {
+	gcsRelPaths := make(map[string]bool)
+	for _, gcsRelPath := range files {
+		if gcsRelPaths[gcsRelPath] {
+			return fmt.Errorf("storeInGCS: collision in relative path %q", gcsRelPath)
 		}
-		basenames[filepath.Base(file)] = true
+		gcsRelPaths[gcsRelPath] = true
 	}
-	for _, file := range files {
+	for file, gcsRelPath := range files {
 		r, err := os.Open(file)
 		if err != nil {
-			return err
+			return fmt.Errorf("error opening %q: %v", file, err)
 		}
 		defer r.Close()
-		if err := gcs.store(ctx, r, filepath.Base(file)); err != nil {
+		if err := gcs.store(ctx, r, gcsRelPath); err != nil {
 			return err
 		}
 	}
@@ -196,10 +198,13 @@ func sanitize(output *config.Image) {
 // and uploads dependencies to GCS.
 func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *config.Image, output *config.Image, buildSpec *config.Build) ([]string, error) {
 	sanitize(output)
-	toUpload := []string{
-		files.UserBuildContextArchive,
-		files.BuiltinBuildContextArchive,
-		files.StateFile,
+	toUpload := map[string]string{
+		files.UserBuildContextArchive:    filepath.Base(files.UserBuildContextArchive),
+		files.BuiltinBuildContextArchive: filepath.Base(files.BuiltinBuildContextArchive),
+		files.StateFile:                  filepath.Base(files.StateFile),
+	}
+	for _, gcsFile := range buildSpec.GCSFiles {
+		toUpload[gcsFile] = path.Join("gcs_files", filepath.Base(gcsFile))
 	}
 	if err := storeInGCS(ctx, gcs, toUpload); err != nil {
 		return nil, err
@@ -237,6 +242,8 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 		gcs.url(filepath.Base(files.BuiltinBuildContextArchive)),
 		"-var:state_file",
 		gcs.url(filepath.Base(files.StateFile)),
+		"-var:gcs_files",
+		gcs.url("gcs_files"),
 		"-var:cloud_config",
 		cloudConfigFile,
 		"-var:host_maintenance",

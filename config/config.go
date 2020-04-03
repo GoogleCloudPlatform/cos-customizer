@@ -68,6 +68,7 @@ type Build struct {
 	DiskSize  int
 	GPUType   string
 	Timeout   string
+	GCSFiles  []string
 }
 
 // Save serializes the given struct as JSON and writes it out.

@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -50,6 +51,7 @@ type InstallGPU struct {
 	NvidiaInstallDirHost string
 	gpuType              string
 	getValidDrivers      bool
+	gpuDataDir           string
 }
 
 // Name implements subcommands.Command.Name.
@@ -80,6 +82,9 @@ func (i *InstallGPU) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(
 		&i.getValidDrivers, "get-valid-drivers", false,
 		"Print the list of supported GPU driver versions. If this flag is given, no other actions will be taken.")
+	f.StringVar(&i.gpuDataDir, "deps-dir", "", "If provided, the local directory to search for cos-gpu-installer data dependencies. "+
+		"The exact data dependencies that must be present in this directory depends on the version of cos-gpu-installer "+
+		"used by cos-customizer. Do not expect this flag to be stable; it exists for compatibility with pre-release COS images.")
 }
 
 func validDriverVersions(ctx context.Context, gcsClient *storage.Client) (map[string]bool, error) {
@@ -141,9 +146,21 @@ func (i *InstallGPU) validate(ctx context.Context, gcsClient *storage.Client, fi
 }
 
 func (i *InstallGPU) templateScript(scriptPath string) error {
-	i.NvidiaDriverVersion = quoteForShell(i.NvidiaDriverVersion)
-	i.NvidiaDriverMd5sum = quoteForShell(i.NvidiaDriverMd5sum)
-	i.NvidiaInstallDirHost = quoteForShell(i.NvidiaInstallDirHost)
+	setCOSDownloadGCS := ""
+	if i.gpuDataDir != "" {
+		setCOSDownloadGCS = "true"
+	}
+	data := struct {
+		NvidiaDriverVersion  string
+		NvidiaDriverMd5sum   string
+		NvidiaInstallDirHost string
+		SetCOSDownloadGCS    string
+	}{
+		NvidiaDriverVersion:  quoteForShell(i.NvidiaDriverVersion),
+		NvidiaDriverMd5sum:   quoteForShell(i.NvidiaDriverMd5sum),
+		NvidiaInstallDirHost: quoteForShell(i.NvidiaInstallDirHost),
+		SetCOSDownloadGCS:    quoteForShell(setCOSDownloadGCS),
+	}
 	tmpl, err := template.New(filepath.Base(scriptPath)).ParseFiles(scriptPath)
 	if err != nil {
 		return err
@@ -153,7 +170,7 @@ func (i *InstallGPU) templateScript(scriptPath string) error {
 		return err
 	}
 	defer w.Close()
-	return tmpl.Execute(w, i)
+	return tmpl.Execute(w, data)
 }
 
 func (i *InstallGPU) updateBuildConfig(configPath string) error {
@@ -167,6 +184,17 @@ func (i *InstallGPU) updateBuildConfig(configPath string) error {
 		return err
 	}
 	buildConfig.GPUType = i.gpuType
+	if i.gpuDataDir != "" {
+		files, err := ioutil.ReadDir(i.gpuDataDir)
+		if err != nil {
+			return fmt.Errorf("error reading dir %q: %v", i.gpuDataDir, err)
+		}
+		for _, f := range files {
+			if f.Mode().IsRegular() {
+				buildConfig.GCSFiles = append(buildConfig.GCSFiles, filepath.Join(i.gpuDataDir, f.Name()))
+			}
+		}
+	}
 	if _, err := configFile.Seek(0, 0); err != nil {
 		return err
 	}
