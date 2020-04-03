@@ -111,7 +111,7 @@ func setupInstallGPUFiles() (string, *fs.Files, error) {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
 	}
-	if _, err := scriptFile.Write([]byte("{{.NvidiaDriverVersion}} {{.NvidiaDriverMd5sum}} {{.NvidiaInstallDirHost}}")); err != nil {
+	if _, err := scriptFile.Write([]byte("{{.NvidiaDriverVersion}} {{.NvidiaDriverMd5sum}} {{.NvidiaInstallDirHost}} {{.SetCOSDownloadGCS}}")); err != nil {
 		scriptFile.Close()
 		os.RemoveAll(tmpDir)
 		return "", nil, err
@@ -158,7 +158,7 @@ func TestInstallGPUTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []byte("'390.46' ''\"'\"'md5'\"'\"'' '/var/lib/nvidia'")
+	want := []byte("'390.46' ''\"'\"'md5'\"'\"'' '/var/lib/nvidia' ''")
 	if !bytes.Equal(got, want) {
 		t.Errorf("install-gpu(-version=390.46 -md5sum='md5'); script template; got %s, want %s", string(got), string(want))
 	}
@@ -181,6 +181,41 @@ func TestInstallGPUBuildConfig(t *testing.T) {
 	}
 	if got := buildConfig.GPUType; got != "nvidia-tesla-k80" {
 		t.Errorf("install-gpu(-version=390.46 -gpu-type=nvidia-tesla-k80); GPU; got %s, want nvidia-tesla-k80", buildConfig.GPUType)
+	}
+}
+
+func TestInstallGPUBuildConfigGCSFiles(t *testing.T) {
+	tmpDir, files, err := setupInstallGPUFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	depsDir := filepath.Join(tmpDir, "deps")
+	if err := os.Mkdir(depsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(depsDir, "test-file"), []byte("test-file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gcs := fakes.GCSForTest(t)
+	defer gcs.Close()
+	if _, err := executeInstallGPU(context.Background(), files, gcs.Client, "-version=390.46", "-deps-dir="+depsDir); err != nil {
+		t.Fatal(err)
+	}
+	buildConfig := &config.Build{}
+	if err := config.LoadFromFile(files.BuildConfig, buildConfig); err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(depsDir, "test-file")
+	foundWant := false
+	for _, got := range buildConfig.GCSFiles {
+		if got == want {
+			foundWant = true
+			break
+		}
+	}
+	if !foundWant {
+		t.Errorf("install-gpu(-version=390.46 -deps-dir=%q); buildConfig.GCSFiles; got %v, must include %q", depsDir, buildConfig.GCSFiles, want)
 	}
 }
 

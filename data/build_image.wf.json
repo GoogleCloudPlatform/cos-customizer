@@ -10,6 +10,10 @@
     "user_build_context": {"Required": true, "Description": "GCS URL of the user build context."},
     "builtin_build_context": {"Required": true, "Description": "GCS URL of the builtin build context."},
     "state_file": {"Required": true, "Description": "GCS URL of the state file."},
+    "gcs_files": {
+      "Required": true,
+      "Description": "GCS URL of the directory containing arbitrary, step-specific data that does not belong in one of the build contexts."
+    },
     "cloud_config": {"Required": true, "Description": "cloud-config file to run."}
   },
   "Sources": {
@@ -39,6 +43,7 @@
             "UserBuildContext": "${user_build_context}",
             "BuiltinBuildContext": "${builtin_build_context}",
             "StateFile": "${state_file}",
+            "GCSFiles": "${gcs_files}",
             "DaisyAck": "${SCRATCHPATH}/daisy_ack",
             "user-data": "${SOURCE:cloud-config}",
             "block-project-ssh-keys": "TRUE",

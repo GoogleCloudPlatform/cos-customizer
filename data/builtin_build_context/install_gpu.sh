@@ -23,9 +23,17 @@ set -o errexit
 export NVIDIA_DRIVER_VERSION={{.NvidiaDriverVersion}}
 export NVIDIA_DRIVER_MD5SUM={{.NvidiaDriverMd5sum}}
 export NVIDIA_INSTALL_DIR_HOST={{.NvidiaInstallDirHost}}
-export COS_NVIDIA_INSTALLER_CONTAINER=gcr.io/cos-cloud/cos-gpu-installer:v20200203
+readonly SET_COS_DOWNLOAD_GCS={{.SetCOSDownloadGCS}}
+export COS_NVIDIA_INSTALLER_CONTAINER=gcr.io/cos-cloud/cos-gpu-installer:v20200403
 export NVIDIA_INSTALL_DIR_CONTAINER=/usr/local/nvidia
 export ROOT_MOUNT_DIR=/root
+
+set_cos_download_gcs() {
+  local -r url="$(/usr/share/google/get_metadata_value attributes/GCSFiles)"
+  if [[ -n "${url}" ]]; then
+    export COS_DOWNLOAD_GCS="https://storage.googleapis.com/${url#gs://}"
+  fi
+}
 
 pull_installer() {
   local docker_code
@@ -45,6 +53,9 @@ pull_installer() {
 }
 
 main() {
+  if [[ -n "${SET_COS_DOWNLOAD_GCS}" ]]; then
+    set_cos_download_gcs
+  fi
   mkdir -p "${NVIDIA_INSTALL_DIR_HOST}"
   mount --bind "${NVIDIA_INSTALL_DIR_HOST}" "${NVIDIA_INSTALL_DIR_HOST}"
   mount -o remount,exec "${NVIDIA_INSTALL_DIR_HOST}"
@@ -63,6 +74,7 @@ main() {
     -e COS_NVIDIA_INSTALLER_CONTAINER \
     -e NVIDIA_INSTALL_DIR_CONTAINER \
     -e ROOT_MOUNT_DIR \
+    -e COS_DOWNLOAD_GCS \
     "${COS_NVIDIA_INSTALLER_CONTAINER}"
   ${NVIDIA_INSTALL_DIR_HOST}/bin/nvidia-smi
 

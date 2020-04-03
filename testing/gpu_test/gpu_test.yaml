@@ -17,6 +17,7 @@ substitutions:
   "_INPUT_IMAGE": "cos-dev-69-10895-0-0"
   "_INPUT_PROJECT": "cos-cloud"
   "_DRIVER_VERSION": ""
+  "_DEPS_DIR": ""
 steps:
 - name: 'gcr.io/cloud-builders/bazel'
   args: ["run", "--spawn_strategy=standalone", ":cos_customizer", "--", "--norun"]
@@ -33,7 +34,8 @@ steps:
 - name: 'bazel:cos_customizer'
   args: ["install-gpu",
          "-version=${_DRIVER_VERSION}",
-         "-gpu-type=nvidia-tesla-k80"]
+         "-gpu-type=nvidia-tesla-k80",
+         "-deps-dir=${_DEPS_DIR}"]
 - name: 'bazel:cos_customizer'
   args: ["run-script",
          "-script=preload.sh"]

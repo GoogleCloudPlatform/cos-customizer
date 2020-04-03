@@ -88,25 +88,38 @@ func TestDaisyArgsGCSUpload(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, "test-file"), []byte("test-file"), 0644); err != nil {
+		t.Fatal(err)
+	}
 	var testData = []struct {
 		testName string
 		file     string
+		object   string
 		contents []byte
 	}{
 		{
 			testName: "UserBuildContextArchive",
 			file:     files.UserBuildContextArchive,
+			object:   filepath.Base(files.UserBuildContextArchive),
 			contents: []byte("abc"),
 		},
 		{
 			testName: "BuiltinBuildContextArchive",
 			file:     files.BuiltinBuildContextArchive,
+			object:   filepath.Base(files.BuiltinBuildContextArchive),
 			contents: []byte("def"),
 		},
 		{
 			testName: "StateFile",
 			file:     files.StateFile,
+			object:   filepath.Base(files.StateFile),
 			contents: []byte("ghi"),
+		},
+		{
+			testName: "ArbitraryFileUpload",
+			file:     filepath.Join(tmpDir, "test-file"),
+			object:   "gcs_files/test-file",
+			contents: []byte("test-file"),
 		},
 	}
 	gcs := fakes.GCSForTest(t)
@@ -118,16 +131,18 @@ func TestDaisyArgsGCSUpload(t *testing.T) {
 			if err := ioutil.WriteFile(input.file, input.contents, 0744); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := daisyArgs(context.Background(), gm, files, config.NewImage("", ""), config.NewImage("", ""), &config.Build{}); err != nil {
+			buildSpec := &config.Build{
+				GCSFiles: []string{filepath.Join(tmpDir, "test-file")},
+			}
+			if _, err := daisyArgs(context.Background(), gm, files, config.NewImage("", ""), config.NewImage("", ""), buildSpec); err != nil {
 				t.Fatalf("daisyArgs: %v", err)
 			}
-			object := filepath.Base(input.file)
-			got, ok := gcs.Objects[fmt.Sprintf("/bucket/cos-customizer/%s", object)]
+			got, ok := gcs.Objects[fmt.Sprintf("/bucket/cos-customizer/%s", input.object)]
 			if !ok {
-				t.Fatalf("daisyArgs: write /bucket/cos-customizer/%s: not found", object)
+				t.Fatalf("daisyArgs: write /bucket/cos-customizer/%s: not found", input.object)
 			}
 			if !cmp.Equal(got, input.contents) {
-				t.Errorf("daisyArgs: write /bucket/cos-customizer/%s: got %s, want %s", object, string(got), string(input.contents))
+				t.Errorf("daisyArgs: write /bucket/cos-customizer/%s: got %s, want %s", input.object, string(got), string(input.contents))
 			}
 		})
 	}
@@ -475,6 +490,13 @@ func TestDaisyArgs(t *testing.T) {
 			outputImage: config.NewImage("", ""),
 			buildConfig: &config.Build{Timeout: "60m", GCSBucket: "bucket", GCSDir: "dir"},
 			want:        []string{"-default_timeout", "60m"},
+		},
+		{
+			testName:    "GCSFiles",
+			inputImage:  config.NewImage("", ""),
+			outputImage: config.NewImage("", ""),
+			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
+			want:        []string{"-var:gcs_files", "gs://bucket/dir/cos-customizer/gcs_files"},
 		},
 	}
 	gcs := fakes.GCSForTest(t)
