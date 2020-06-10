@@ -44,4 +44,4 @@ steps:
          "-var:test_cfg", "../${_TEST}/preload_test.cfg", "testing/util/run_test.wf.json"]
 options:
   machineType: 'N1_HIGHCPU_8'
-timeout: "1500s"
+timeout: "7200s"
