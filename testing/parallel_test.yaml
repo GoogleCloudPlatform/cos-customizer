@@ -100,4 +100,4 @@ steps:
          "./gpu_vm.wf.json", "testing/util/run_test.wf.json"]
 options:
   machineType: 'N1_HIGHCPU_32'
-timeout: "1500s"
+timeout: "7200s"
