@@ -22,4 +22,4 @@ steps:
   args: ["builds", "submit", "--config=testing/gpu_test/gpu_test.yaml",
          "--substitutions=_DRIVER_VERSION=418.67,_INPUT_IMAGE=cos-dev-83-12998-0-0,_DEPS_DIR=deps_dir",
          "."]
-timeout: "1800s"
+timeout: "7200s"

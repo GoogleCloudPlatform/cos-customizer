@@ -20,4 +20,4 @@ steps:
   - |
     gcloud builds submit --config=testing/timeout_test/timeout_test.yaml . | tee /build.log
     grep "did not complete within the specified timeout" /build.log > /dev/null
-timeout: '1800s'
+timeout: '7200s'
