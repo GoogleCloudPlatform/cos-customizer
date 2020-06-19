@@ -48,7 +48,7 @@ func SetupFakeDisk(copyName, srcPrefix string, t *testing.T, testNames *TestName
 	}
 	dest.Close()
 
-	cmd := fmt.Sprintf("sudo losetup -fP --show /%s", copyFile)
+	cmd := fmt.Sprintf("sudo losetup -fP --show %s", copyFile)
 	out, err := exec.Command("bash", "-c", cmd).Output()
 	if err != nil {
 		t.Fatal("error losetup disk file")
