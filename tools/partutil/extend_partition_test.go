@@ -87,7 +87,7 @@ func TestExtendPartition(t *testing.T) {
 
 	cmdM := fmt.Sprintf("sudo mount %sp1 mt", diskName)
 	if err := exec.Command("bash", "-c", cmdM).Run(); err != nil {
-		t.Fatal("error mounting disk file")
+		t.Fatalf("error mounting disk file, cmd: %s", cmdM)
 	}
 	cmdM = "sudo umount mt"
 	defer exec.Command("bash", "-c", cmdM).Run()
