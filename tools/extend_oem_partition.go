@@ -47,6 +47,10 @@ func ExtendOemPartition(disk string, statePartNum, oemPartNum int, oemSize strin
 		return err
 	}
 
+	if newOemSizeBytes == -1 {
+		return fmt.Errorf("Error: invalid oemSize: %s", oemSize)
+	}
+
 	if newOemSizeBytes <= oldOemSizeBytes {
 		log.Printf("\n!!!!!!!WARNING!!!!!!!:\noemSize: %d bytes is not larger than the original OEM partition size: %d bytes, nothing is done\n", newOemSizeBytes, oldOemSizeBytes)
 		return nil
