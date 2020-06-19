@@ -1,6 +1,57 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package partutil
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
+
+func TestCheck(t *testing.T) {
+	var testData = []struct {
+		testName string
+		err      error
+		errStr   string
+		want     bool
+	}{
+		{
+			"error with msg",
+			errors.New("testing error"),
+			"msg:testing error",
+			true,
+		}, {
+			"error with no msg",
+			errors.New(""),
+			"",
+			true,
+		}, {
+			"nil error",
+			nil,
+			"",
+			false,
+		},
+	}
+
+	for _, input := range testData {
+		t.Run(input.testName, func(t *testing.T) {
+			if Check(input.err, input.errStr) != input.want {
+				t.Errorf("wrongly detect error %v", input.err)
+			}
+		})
+	}
+}
 
 func TestConvertSizeToBytes(t *testing.T) {
 	testData := []struct {

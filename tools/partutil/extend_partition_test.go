@@ -1,17 +1,33 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package partutil
 
 import (
-	"log"
+	"cos-customizer/tools/partutil/partutiltest"
+	"fmt"
 	"os/exec"
 	"strconv"
 	"testing"
 )
 
 func TestExtendPartition(t *testing.T) {
-	diskName := ""
-	copyFile := ""
-	t.Cleanup(func() { tearDown(copyFile, diskName) })
-	copyFile, diskName = setupFakeDisk("tmp_disk_extend_partition", "", t)
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+
+	diskName := testNames.DiskName
 
 	testData := []struct {
 		testName string
@@ -59,22 +75,18 @@ func TestExtendPartition(t *testing.T) {
 
 	for _, input := range testData {
 		t.Run(input.testName, func(t *testing.T) {
-			err := ExtendPartition(input.disk, input.partNum, input.end)
-			if err == nil {
+			if err := ExtendPartition(input.disk, input.partNum, input.end); err == nil {
 				t.Fatalf("error not found in test %s", input.testName)
 			}
 		})
 	}
 
-	err := ExtendPartition(diskName, 1, 833)
-	if err != nil {
+	if err := ExtendPartition(diskName, 1, 833); err != nil {
 		t.Fatal("error when extending partition 1 to 833")
 	}
-	cmdM := "sudo mount " + diskName + "p1 mt"
-	err = exec.Command("bash", "-c", cmdM).Run()
-	if err != nil {
-		log.Println("CMMMMMMM: " + cmdM)
 
+	cmdM := fmt.Sprintf("sudo mount %sp1 mt", diskName)
+	if err := exec.Command("bash", "-c", cmdM).Run(); err != nil {
 		t.Fatal("error mounting disk file")
 	}
 	cmdM = "sudo umount mt"
@@ -82,7 +94,6 @@ func TestExtendPartition(t *testing.T) {
 	cmdD := "df -h | grep mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
-		log.Println("CMDDDDDDD: " + cmdD)
 		t.Fatal("error reading df")
 	}
 	if readSize(string(out)) <= 180 {

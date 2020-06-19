@@ -1,59 +1,30 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package partutil
 
 import (
-	"io"
-	"os"
-	"os/exec"
+	"cos-customizer/tools/partutil/partutiltest"
 	"testing"
 )
 
-func setupFakeDisk(copyName, srcPrefix string, t *testing.T) (string, string) {
-	copyFile := ""
-	diskName := ""
-	src, err := os.Open("./" + srcPrefix + "disk_file/ori_disk")
-	if err != nil {
-		t.Fatal("cannot open ori_disk")
-	}
-	defer src.Close()
-
-	copyFile = "./" + srcPrefix + "disk_file/" + copyName
-	dest, err := os.Create(copyFile)
-	if err != nil {
-		t.Fatal("cannot create tmp disk file")
-	}
-	defer os.Remove("./disk_file/" + copyName)
-	_, err = io.Copy(dest, src)
-	if err != nil {
-		t.Fatal("error copying disk file")
-	}
-	dest.Close()
-
-	cmd := "sudo losetup -fP --show ./disk_file/" + copyName
-	out, err := exec.Command("bash", "-c", cmd).Output()
-	if err != nil {
-		t.Fatal("error losetup disk file")
-	}
-	diskName = string(out)
-	diskName = diskName[:len(diskName)-1]
-
-	return copyFile, diskName
-}
-
-func tearDown(copyFile, diskName string) {
-	if diskName != "" {
-		cmd := "sudo losetup -d " + diskName
-		exec.Command("bash", "-c", cmd).Run()
-	}
-	if copyFile != "" {
-		os.Remove(copyFile)
-	}
-}
-
 func TestMovePartition(t *testing.T) {
-	diskName := ""
-	copyFile := ""
-	t.Cleanup(func() { tearDown(copyFile, diskName) })
-	copyFile, diskName = setupFakeDisk("tmp_disk_move_partition", "", t)
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+
+	diskName := testNames.DiskName
 
 	type testStruct struct {
 		testName string
@@ -125,8 +96,8 @@ func TestMovePartition(t *testing.T) {
 		1,
 		"+150K",
 	}
-	err := MovePartition(step.disk, step.partNum, step.dest)
-	if err != nil {
+
+	if err := MovePartition(step.disk, step.partNum, step.dest); err != nil {
 		t.Fatalf("error in test %s", step.testName)
 	}
 	step = testStruct{
@@ -135,8 +106,8 @@ func TestMovePartition(t *testing.T) {
 		1,
 		"-40K",
 	}
-	err = MovePartition(step.disk, step.partNum, step.dest)
-	if err != nil {
+
+	if err := MovePartition(step.disk, step.partNum, step.dest); err != nil {
 		t.Fatalf("error in test %s", step.testName)
 	}
 	step = testStruct{
@@ -145,8 +116,7 @@ func TestMovePartition(t *testing.T) {
 		8,
 		"434",
 	}
-	err = MovePartition(step.disk, step.partNum, step.dest)
-	if err != nil {
+	if err := MovePartition(step.disk, step.partNum, step.dest); err != nil {
 		t.Fatalf("error in test %s", step.testName)
 	}
 

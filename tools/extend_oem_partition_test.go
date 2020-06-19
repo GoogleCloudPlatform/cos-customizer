@@ -1,62 +1,35 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tools
 
 import (
 	"bufio"
-	"io"
-	"log"
+	"cos-customizer/tools/partutil/partutiltest"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"testing"
 )
 
-func setupFakeDisk(copyName, srcPrefix string, t *testing.T) (string, string) {
-	copyFile := ""
-	diskName := ""
-	src, err := os.Open("./" + srcPrefix + "disk_file/ori_disk")
-	if err != nil {
-		t.Fatal("cannot open ori_disk")
-	}
-	defer src.Close()
-
-	copyFile = "./" + srcPrefix + "disk_file/" + copyName
-	dest, err := os.Create(copyFile)
-	if err != nil {
-		t.Fatal("cannot create tmp disk file")
-	}
-	defer os.Remove("./disk_file/" + copyName)
-	_, err = io.Copy(dest, src)
-	if err != nil {
-		t.Fatal("error copying disk file")
-	}
-	dest.Close()
-
-	cmd := "sudo losetup -fP --show " + copyFile
-	out, err := exec.Command("bash", "-c", cmd).Output()
-	if err != nil {
-		t.Fatal("error losetup disk file")
-	}
-	diskName = string(out)
-	diskName = diskName[:len(diskName)-1]
-
-	return copyFile, diskName
-}
-
-func tearDown(copyFile, diskName string) {
-	if diskName != "" {
-		cmd := "sudo losetup -d " + diskName
-		exec.Command("bash", "-c", cmd).Run()
-	}
-	if copyFile != "" {
-		os.Remove(copyFile)
-	}
-}
-
 func TestExtendOemPartition(t *testing.T) {
-	diskName := ""
-	copyFile := ""
-	t.Cleanup(func() { tearDown(copyFile, diskName) })
-	copyFile, diskName = setupFakeDisk("tmp_disk_extend_oem_partition", "partutil/", t)
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition", "partutil/", t, &testNames)
+
+	diskName := testNames.DiskName
 
 	testData := []struct {
 		testName     string
@@ -136,20 +109,18 @@ func TestExtendOemPartition(t *testing.T) {
 
 	for _, input := range testData {
 		t.Run(input.testName, func(t *testing.T) {
-			err := ExtendOemPartition(input.disk, input.statePartNum, input.oemPartNum, input.size)
-			if err == nil {
+			if err := ExtendOemPartition(input.disk, input.statePartNum, input.oemPartNum, input.size); err == nil {
 				t.Fatalf("error not found in test %s", input.testName)
 			}
 		})
 	}
 
-	err := ExtendOemPartition(diskName, 1, 8, "200K")
-	if err != nil {
+	if err := ExtendOemPartition(diskName, 1, 8, "200K"); err != nil {
 		t.Fatal("error when extending OEM partition")
 	}
-	mountAndCheck(diskName, "p8", "This is partition 8 OEM partition", t, 180)
-	mountAndCheck(diskName, "p1", "This is partition 1 stateful partition", t, 80)
-	mountAndCheck(diskName, "p2", "This is partition 2 middle partition", t, 80)
+	mountAndCheck(diskName+"p8", "This is partition 8 OEM partition", t, 180)
+	mountAndCheck(diskName+"p1", "This is partition 1 stateful partition", t, 80)
+	mountAndCheck(diskName+"p2", "This is partition 2 middle partition", t, 80)
 }
 
 func readSize(out string) int {
@@ -175,21 +146,17 @@ func readSize(out string) int {
 	return res
 }
 
-func mountAndCheck(diskName, partNum, wantLine string, t *testing.T, size int) {
-	cmdM := "sudo mount " + diskName + partNum + " partutil/mt"
-	err := exec.Command("bash", "-c", cmdM).Run()
-	if err != nil {
-		log.Println("CMMMMMMM: " + cmdM)
-
-		t.Fatal("error mounting " + diskName + partNum)
+func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
+	cmdM := fmt.Sprintf("sudo mount %s partutil/mt", partName)
+	if err := exec.Command("bash", "-c", cmdM).Run(); err != nil {
+		t.Fatalf("error mounting %s", partName)
 	}
 	cmdM = "sudo umount partutil/mt"
 	defer exec.Command("bash", "-c", cmdM).Run()
 	cmdD := "df -h | grep partutil/mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
-		log.Println("CMDDDDDDD: " + cmdD)
-		t.Error("error reading df" + diskName + partNum)
+		t.Errorf("error reading df %s", partName)
 	}
 	if readSize(string(out)) <= size {
 		t.Errorf("wrong file system size of partition \n INFO: %s", string(out))
@@ -197,7 +164,7 @@ func mountAndCheck(diskName, partNum, wantLine string, t *testing.T, size int) {
 
 	f, err := os.Open("partutil/mt/content")
 	if err != nil {
-		t.Error("cannot open file in " + diskName + partNum)
+		t.Errorf("cannot open file in %s", partName)
 	}
 	defer f.Close()
 	rd := bufio.NewReader(f)
@@ -206,6 +173,6 @@ func mountAndCheck(diskName, partNum, wantLine string, t *testing.T, size int) {
 		t.Error("cannot ReadLine in p8")
 	}
 	if string(line) != wantLine {
-		t.Errorf("content in %s corrupted", diskName+partNum)
+		t.Errorf("content in %s corrupted", partName)
 	}
 }
