@@ -39,12 +39,6 @@ func TestExtendOemPartition(t *testing.T) {
 		size         string
 	}{
 		{
-			"SmallerSize",
-			diskName,
-			1,
-			8,
-			"60K",
-		}, {
 			"InvalidDisk",
 			"./partutil/disk_file/no_disk",
 			1,
@@ -111,6 +105,36 @@ func TestExtendOemPartition(t *testing.T) {
 		t.Run(input.testName, func(t *testing.T) {
 			if err := ExtendOemPartition(input.disk, input.statePartNum, input.oemPartNum, input.size); err == nil {
 				t.Fatalf("error not found in test %s", input.testName)
+			}
+		})
+	}
+
+	testData2 := []struct {
+		testName     string
+		disk         string
+		statePartNum int
+		oemPartNum   int
+		size         string
+	}{
+		{
+			"SmallerSize",
+			diskName,
+			1,
+			8,
+			"60K",
+		}, {
+			"SameSize",
+			diskName,
+			1,
+			8,
+			"100K",
+		},
+	}
+
+	for _, input := range testData2 {
+		t.Run(input.testName, func(t *testing.T) {
+			if err := ExtendOemPartition(input.disk, input.statePartNum, input.oemPartNum, input.size); err != nil {
+				t.Fatalf("error in test %s", input.testName)
 			}
 		})
 	}
