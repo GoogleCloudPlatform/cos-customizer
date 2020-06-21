@@ -27,7 +27,7 @@ func MovePartition(disk string, partNumInt int, dest string) error {
 		return errors.New("Error: empty disk name or partition number")
 	}
 
-	cmd := fmt.Sprintf("echo %s | sudo sfdisk --move-data %s -N %d", dest, disk, partNumInt)
+	cmd := fmt.Sprintf("echo %s | sudo sfdisk --move-data=/dev/null %s -N %d", dest, disk, partNumInt)
 	if err := ExecCmdToStdout(cmd); Check(err, cmd) {
 		return err
 	}
