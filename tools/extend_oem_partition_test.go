@@ -142,10 +142,10 @@ func TestExtendOemPartition(t *testing.T) {
 	if err := ExtendOemPartition(diskName, 1, 8, "200K"); err != nil {
 		t.Fatal("error when extending OEM partition")
 	}
-	if err := os.Mkdir("./partutil/mt", 0777); err != nil {
+	if err := os.Mkdir("./mt", 0777); err != nil {
 		t.Fatal("cannot create mount point")
 	}
-	defer os.Remove("./partutil/mt")
+	defer os.Remove("./mt")
 	mountAndCheck(diskName+"p8", "This is partition 8 OEM partition", t, 180)
 	mountAndCheck(diskName+"p1", "This is partition 1 stateful partition", t, 80)
 	mountAndCheck(diskName+"p2", "This is partition 2 middle partition", t, 80)
@@ -175,13 +175,13 @@ func readSize(out string) int {
 }
 
 func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
-	cmdM := fmt.Sprintf("sudo mount %s partutil/mt", partName)
+	cmdM := fmt.Sprintf("sudo mount %s mt", partName)
 	if err := exec.Command("bash", "-c", cmdM).Run(); err != nil {
 		t.Fatalf("error mounting %s", partName)
 	}
-	cmdM = "sudo umount partutil/mt"
+	cmdM = "sudo umount mt"
 	defer exec.Command("bash", "-c", cmdM).Run()
-	cmdD := "df -h | grep partutil/mt"
+	cmdD := "df -h | grep mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
 		t.Errorf("error reading df %s", partName)
@@ -190,7 +190,7 @@ func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
 		t.Errorf("wrong file system size of partition \n INFO: %s", string(out))
 	}
 
-	f, err := os.Open("partutil/mt/content")
+	f, err := os.Open("mt/content")
 	if err != nil {
 		t.Errorf("cannot open file in %s", partName)
 	}

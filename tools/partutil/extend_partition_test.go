@@ -17,6 +17,7 @@ package partutil
 import (
 	"cos-customizer/tools/partutil/partutiltest"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"testing"
@@ -84,6 +85,11 @@ func TestExtendPartition(t *testing.T) {
 	if err := ExtendPartition(diskName, 1, 833); err != nil {
 		t.Fatal("error when extending partition 1 to 833")
 	}
+
+	if err := os.Mkdir("./mt", 0777); err != nil {
+		t.Fatal("cannot create mount point")
+	}
+	defer os.Remove("./mt")
 
 	cmdM := fmt.Sprintf("sudo mount %sp1 mt", diskName)
 	if err := exec.Command("bash", "-c", cmdM).Run(); err != nil {
