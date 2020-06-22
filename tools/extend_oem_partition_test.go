@@ -142,6 +142,10 @@ func TestExtendOemPartition(t *testing.T) {
 	if err := ExtendOemPartition(diskName, 1, 8, "200K"); err != nil {
 		t.Fatal("error when extending OEM partition")
 	}
+	if err := os.Mkdir("./partutil/mt", 0777); err != nil {
+		t.Fatal("cannot create mount point")
+	}
+	defer os.Remove("./partutil/mt")
 	mountAndCheck(diskName+"p8", "This is partition 8 OEM partition", t, 180)
 	mountAndCheck(diskName+"p1", "This is partition 1 stateful partition", t, 80)
 	mountAndCheck(diskName+"p2", "This is partition 2 middle partition", t, 80)
