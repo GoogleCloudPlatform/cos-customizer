@@ -42,7 +42,7 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 
 	// dump partition table.
 	cmd := fmt.Sprintf("sudo sfdisk --dump %s", disk)
-	tableByte, err := exec.Command(cmd).Output()
+	tableByte, err := exec.Command("/bin/bash", "-c", cmd).Output()
 	if Check(err, "error in dumping partition table") {
 		return err
 	}
@@ -57,7 +57,7 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 
 	// write partition table back.
 	cmd = fmt.Sprintf("sudo sfdisk --no-reread %s", disk)
-	writeTableCmd := exec.Command(cmd)
+	writeTableCmd := exec.Command("/bin/bash", "-c", cmd)
 	writeTableCmd.Stdin = &tableBuffer
 	writeTableCmd.Stdout = os.Stdout
 	if err := writeTableCmd.Run(); err != nil {
