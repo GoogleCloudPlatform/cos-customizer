@@ -15,11 +15,12 @@
 package partutil
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -37,23 +38,32 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 	}
 
 	partName := disk + partNum
+	var tableBuffer bytes.Buffer
 
-	// dump partition table to a file.
-	cmd := fmt.Sprintf("sudo sfdisk --dump %s > partition_table", disk)
-	if err := ExecCmdToStdout(cmd); Check(err, cmd) {
+	// dump partition table.
+	cmd := fmt.Sprintf("sudo sfdisk --dump %s", disk)
+	tableByte, err := exec.Command(cmd).Output()
+	if Check(err, "error in dumping partition table") {
 		return err
 	}
-	defer os.Remove("partition_table")
 
-	if err := editPartitionTableFile("partition_table", partName, end); Check(err, fmt.Sprintf("editing partition table file of %s to ending sector at: %d", partName, end)) {
+	// edit partition table.
+	tableString, err := editPartitionTableFile(string(tableByte), partName, end)
+	if Check(err, fmt.Sprintf("editing partition table file of %s to ending sector at: %d", partName, end)) {
 		return err
 	}
+
+	tableBuffer.WriteString(tableString)
 
 	// write partition table back.
-	cmd = fmt.Sprintf("sudo sfdisk %s < partition_table", disk)
-	if err := ExecCmdToStdout(cmd); Check(err, cmd) {
-		return err
+	cmd = fmt.Sprintf("sudo sfdisk --no-reread %s", disk)
+	writeTableCmd := exec.Command(cmd)
+	writeTableCmd.Stdin = &tableBuffer
+	writeTableCmd.Stdout = os.Stdout
+	if err := writeTableCmd.Run(); err != nil {
+		log.Printf("error in writing partition table back to %s \n", disk)
 	}
+
 	log.Printf("\nCompleted extending %s\n\n", partName)
 
 	// check and repair file system in the partition.
@@ -74,13 +84,9 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 }
 
 // change partition table file to extend partition.
-func editPartitionTableFile(fileName, partName string, end int) error {
-	content, err := ioutil.ReadFile(fileName)
-	if Check(err, "cannot read partition table file") {
-		return err
-	}
-
-	lines := strings.Split(string(content), "\n")
+func editPartitionTableFile(table, partName string, end int) (string, error) {
+	var err error
+	lines := strings.Split(table, "\n")
 	have := false // whether has valid information about the partition.
 	for i, line := range lines {
 		if strings.Contains(line, partName) {
@@ -98,7 +104,7 @@ func editPartitionTableFile(fileName, partName string, end int) error {
 						mode = 2
 						start, err = strconv.Atoi(word[:len(word)-1]) // a comma at the end.
 						if Check(err, "cannot convert start sector to int") {
-							return err
+							return "", err
 						}
 					}
 				case 2:
@@ -110,16 +116,16 @@ func editPartitionTableFile(fileName, partName string, end int) error {
 
 						size, err := strconv.Atoi(word[:len(word)-1]) // a comma at the end.
 						if Check(err, "cannot convert size to int") {
-							return err
+							return "", err
 						}
 						if end-start+1 <= size {
-							return errors.New("Error: new size is not larger than the original size")
+							return "", errors.New("Error: new size is not larger than the original size")
 						}
 						have = true // Modification completed.
 						ls[j] = strconv.Itoa(end+1-start) + ","
 					}
 				default:
-					return errors.New("Error: error in looking for partition")
+					return "", errors.New("Error: error in looking for partition")
 				}
 				if have {
 					break
@@ -134,12 +140,9 @@ func editPartitionTableFile(fileName, partName string, end int) error {
 		}
 	}
 	if !have {
-		return errors.New("Error: Partition not found")
+		return "", errors.New("Error: Partition not found")
 	}
-	// recreate the partition table file.
-	changed := strings.Join(lines, "\n")
-	if err := ioutil.WriteFile(fileName, []byte(changed), 0644); Check(err, "cannot write to partition table file") {
-		return err
-	}
-	return nil
+	// recreate the partition table.
+	table = strings.Join(lines, "\n")
+	return table, nil
 }
