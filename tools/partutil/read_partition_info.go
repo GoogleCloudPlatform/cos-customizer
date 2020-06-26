@@ -42,11 +42,8 @@ func ReadPartitionSize(disk string, partNumInt int) (int, error) {
 		return 0, errors.New("empty input for disk name or partition number")
 	}
 
-	// for cases like loop5p1.
-	partNum := strconv.Itoa(partNumInt)
-	if disk[len(disk)-1] >= '0' && disk[len(disk)-1] <= '9' {
-		partNum = "p" + partNum
-	}
+	// get partition number string
+	partNum := PartNumIntToString(disk, partNumInt)
 
 	// dump partition table and grep the line.
 	partName := disk + partNum
@@ -76,14 +73,14 @@ func ReadPartitionSize(disk string, partNumInt int) (int, error) {
 				}
 			}
 		default:
-			return -1, errors.New("Error: error in looking for partition")
+			return -1, errors.New("error in looking for partition")
 		}
 		if mode == 2 {
 			break
 		}
 	}
 	if size == -1 {
-		return -1, errors.New("Error: error in looking for partition")
+		return -1, errors.New("error in looking for partition")
 	}
 	return size, nil
 }
@@ -94,11 +91,8 @@ func ReadPartitionStart(disk string, partNumInt int) (int, error) {
 		return 0, errors.New("empty input for disk name or partition number")
 	}
 
-	// for cases like loop5p1.
-	partNum := strconv.Itoa(partNumInt)
-	if disk[len(disk)-1] >= '0' && disk[len(disk)-1] <= '9' {
-		partNum = "p" + partNum
-	}
+	// get partition number string
+	partNum := PartNumIntToString(disk, partNumInt)
 
 	// dump partition table and grep the line.
 	partName := disk + partNum
@@ -128,14 +122,14 @@ func ReadPartitionStart(disk string, partNumInt int) (int, error) {
 				}
 			}
 		default:
-			return -1, errors.New("Error: error in looking for partition")
+			return -1, errors.New("error in looking for partition")
 		}
 		if mode == 2 {
 			break
 		}
 	}
 	if start == -1 {
-		return -1, errors.New("Error: error in looking for partition")
+		return -1, errors.New("error in looking for partition")
 	}
 	return start, nil
 }

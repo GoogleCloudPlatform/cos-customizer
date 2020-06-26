@@ -31,11 +31,8 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 		return errors.New("invalid disk name or partition number")
 	}
 
-	// for cases like loop5p1.
-	partNum := strconv.Itoa(partNumInt)
-	if disk[len(disk)-1] >= '0' && disk[len(disk)-1] <= '9' {
-		partNum = "p" + partNum
-	}
+	// get partition number string
+	partNum := PartNumIntToString(disk, partNumInt)
 
 	partName := disk + partNum
 	var tableBuffer bytes.Buffer
@@ -48,7 +45,7 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 	}
 
 	// edit partition table.
-	tableString, err := editPartitionTableFile(string(tableByte), partName, end)
+	tableString, err := editPartitionEnd(string(tableByte), partName, end)
 	if Check(err, fmt.Sprintf("editing partition table file of %s to ending sector at: %d", partName, end)) {
 		return err
 	}
@@ -83,11 +80,24 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 	return nil
 }
 
-// change partition table file to extend partition.
-func editPartitionTableFile(table, partName string, end int) (string, error) {
+// When we read disk information by dumping the partition table, we get output like the following:
+// sudo sfdisk --dump /dev/sdb
+// label: gpt
+// label-id: 8071096F-DA33-154D-A687-AE097B8252C5
+// device: /dev/sdb
+// unit: sectors
+// first-lba: 2048
+// last-lba: 20971486
+
+// /dev/sdb1 : start=     4401152, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=3B41256B-E064-544A-9101-D2647C0B3A38
+// /dev/sdb2 : start=      206848, size=     4194304, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=60E55EA1-4EEA-9F44-A066-4720F0129089
+// /dev/sdb3 : start=     6498304, size=      204800, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=9479C34A-49A6-9442-A56F-956396DFAC20
+
+// change partition end in the partition table string to extend the partition.
+func editPartitionEnd(table, partName string, end int) (string, error) {
 	var err error
 	lines := strings.Split(table, "\n")
-	have := false // whether has valid information about the partition.
+	haveValidPartition := false // whether has the required partition.
 	for i, line := range lines {
 		if strings.Contains(line, partName) {
 			ls := strings.Split(line, " ")
@@ -119,28 +129,28 @@ func editPartitionTableFile(table, partName string, end int) (string, error) {
 							return "", err
 						}
 						if end-start+1 <= size {
-							return "", errors.New("Error: new size is not larger than the original size")
+							return "", errors.New("new size is not larger than the original size")
 						}
-						have = true // Modification completed.
+						haveValidPartition = true // Modification completed.
 						ls[j] = strconv.Itoa(end+1-start) + ","
 					}
 				default:
-					return "", errors.New("Error: error in looking for partition")
+					return "", errors.New("error in looking for partition")
 				}
-				if have {
+				if haveValidPartition {
 					break
 				}
 			}
 
 			// recreate the line.
-			if have {
+			if haveValidPartition {
 				lines[i] = strings.Join(ls, " ")
 			}
 			break
 		}
 	}
-	if !have {
-		return "", errors.New("Error: Partition not found")
+	if !haveValidPartition {
+		return "", errors.New("partition not found")
 	}
 	// recreate the partition table.
 	table = strings.Join(lines, "\n")

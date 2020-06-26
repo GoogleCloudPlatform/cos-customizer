@@ -24,7 +24,7 @@ import (
 // It takes destination input like 2048 (absolute sector number), +5G or -200M.
 func MovePartition(disk string, partNumInt int, dest string) error {
 	if len(disk) <= 0 || partNumInt <= 0 {
-		return errors.New("Error: empty disk name or partition number")
+		return errors.New("empty disk name or partition number")
 	}
 
 	cmd := fmt.Sprintf("echo %s | sudo sfdisk --no-reread --move-data=/dev/null %s -N %d", dest, disk, partNumInt)

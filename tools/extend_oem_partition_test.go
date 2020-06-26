@@ -24,7 +24,7 @@ import (
 	"testing"
 )
 
-func TestExtendOemPartition(t *testing.T) {
+func TestExtendOEMPartition(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
 	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition", "partutil/", t, &testNames)
@@ -51,7 +51,7 @@ func TestExtendOemPartition(t *testing.T) {
 			8,
 			"200K",
 		}, {
-			"InvalidOemPartition",
+			"InvalidOEMPartition",
 			diskName,
 			1,
 			800,
@@ -103,7 +103,7 @@ func TestExtendOemPartition(t *testing.T) {
 
 	for _, input := range testData {
 		t.Run(input.testName, func(t *testing.T) {
-			if err := ExtendOemPartition(input.disk, input.statePartNum, input.oemPartNum, input.size); err == nil {
+			if err := ExtendOEMPartition(input.disk, input.statePartNum, input.oemPartNum, input.size); err == nil {
 				t.Fatalf("error not found in test %s", input.testName)
 			}
 		})
@@ -133,13 +133,13 @@ func TestExtendOemPartition(t *testing.T) {
 
 	for _, input := range testData2 {
 		t.Run(input.testName, func(t *testing.T) {
-			if err := ExtendOemPartition(input.disk, input.statePartNum, input.oemPartNum, input.size); err != nil {
+			if err := ExtendOEMPartition(input.disk, input.statePartNum, input.oemPartNum, input.size); err != nil {
 				t.Fatalf("error in test %s", input.testName)
 			}
 		})
 	}
 
-	if err := ExtendOemPartition(diskName, 1, 8, "200K"); err != nil {
+	if err := ExtendOEMPartition(diskName, 1, 8, "200K"); err != nil {
 		t.Fatal("error when extending OEM partition")
 	}
 	if err := os.Mkdir("./mt", 0777); err != nil {
@@ -151,7 +151,11 @@ func TestExtendOemPartition(t *testing.T) {
 	mountAndCheck(diskName+"p2", "This is partition 2 middle partition", t, 80)
 }
 
-func readSize(out string) int {
+// read partition fs size from df -h
+// a line looks like:
+// tmpfs           100K     0  100K   0% /dev/lxd
+// (Filesystem      Size  Used Avail Use% Mounted on)
+func readSize(out string) (int, error) {
 	pos := 0
 	res := -1
 	var err error
@@ -162,16 +166,16 @@ func readSize(out string) int {
 	if out[pos-3] != ' ' {
 		res, err = strconv.Atoi(out[pos-3 : pos])
 		if err != nil {
-			return -1
+			return -1, err
 		}
 	} else {
 		res, err = strconv.Atoi(out[pos-2 : pos])
 		if err != nil {
-			return -1
+			return -1, err
 		}
 	}
 
-	return res
+	return res, nil
 }
 
 func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
@@ -184,23 +188,27 @@ func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
 	cmdD := "df -h | grep mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
-		t.Errorf("error reading df %s", partName)
+		t.Fatalf("error reading df %s", partName)
 	}
-	if readSize(string(out)) <= size {
-		t.Errorf("wrong file system size of partition \n INFO: %s", string(out))
+	oldSize, err := readSize(string(out))
+	if err != nil {
+		t.Fatalf("cannot read fs size, the line in df -h: %s", string(out))
+	}
+	if oldSize <= size {
+		t.Fatalf("wrong file system size of partition \n INFO: %s", string(out))
 	}
 
 	f, err := os.Open("mt/content")
 	if err != nil {
-		t.Errorf("cannot open file in %s", partName)
+		t.Fatalf("cannot open file in %s", partName)
 	}
 	defer f.Close()
 	rd := bufio.NewReader(f)
 	line, _, err := rd.ReadLine()
 	if err != nil {
-		t.Error("cannot ReadLine in p8")
+		t.Fatal("cannot ReadLine in p8")
 	}
 	if string(line) != wantLine {
-		t.Errorf("content in %s corrupted", partName)
+		t.Fatalf("content in %s corrupted", partName)
 	}
 }

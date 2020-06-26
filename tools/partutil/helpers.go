@@ -56,7 +56,7 @@ func ConvertSizeToBytes(size string) (int, error) {
 	}
 
 	if size[0] < '0' || size[0] > '9' {
-		return -1, errors.New("Error: invalid oemSize")
+		return -1, errors.New("invalid oemSize")
 	}
 
 	switch size[l-1] {
@@ -92,8 +92,19 @@ func ConvertSizeToBytes(size string) (int, error) {
 			}
 			res *= SEC
 		} else {
-			return -1, errors.New("Error: wrong format for oemSize")
+			return -1, errors.New("wrong format for oemSize")
 		}
 	}
 	return res, nil
+}
+
+// PartNumIntToString converts input int partNumInt into string,
+// if disk ends with number, add 'p' to the front.
+// Example: /dev/loop5p1
+func PartNumIntToString(disk string, partNumInt int) string {
+	partNum := strconv.Itoa(partNumInt)
+	if disk[len(disk)-1] >= '0' && disk[len(disk)-1] <= '9' {
+		partNum = "p" + partNum
+	}
+	return partNum
 }
