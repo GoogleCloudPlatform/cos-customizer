@@ -62,16 +62,17 @@ func TestExtendPartition(t *testing.T) {
 			1,
 			500,
 		}, {
-			"TooLargeSize",
-			diskName,
-			1,
-			3000,
-		}, {
 			"EmptyDiskName",
 			"",
 			1,
 			833,
 		},
+		// {
+		// 	"TooLargeSize",
+		// 	diskName,
+		// 	1,
+		// 	3000,
+		// },
 	}
 
 	for _, input := range testData {
