@@ -19,7 +19,13 @@ import (
 	"testing"
 )
 
-func TestReadPartitionSize(t *testing.T) {
+// A file in tools/partutil/disk_file is used as the simulation of a disk.
+// When a test program starts, it will copy the file and work on it. Its size is 600K. It has three partitions as follows:
+// 1.partition 8, OEM partition, 100K
+// 2.partition 2, middle partition, 100K
+// 3.partition 1, stateful partition, 100K
+
+func TestReadPartitionSizeFails(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
 	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
@@ -30,62 +36,64 @@ func TestReadPartitionSize(t *testing.T) {
 		testName string
 		disk     string
 		partNum  int
-		want     int
-		expErr   bool
-	}{
-		{
-			"100KPart",
-			diskName,
-			8,
-			200,
-			false,
-		}, {
-			"InvalidDisk",
-			"./disk_file/no_disk",
-			8,
-			0,
-			true,
-		}, {
-			"InvalidPartition",
-			diskName,
-			0,
-			0,
-			true,
-		}, {
-			"NonexistPartition",
-			diskName,
-			100,
-			0,
-			true,
-		}, {
-			"EmptyDiskName",
-			"",
-			1,
-			0,
-			true,
-		},
+	}{{
+		testName: "InvalidDisk",
+		disk:     "./disk_file/no_disk",
+		partNum:  8,
+	}, {
+		testName: "InvalidPartition",
+		disk:     diskName,
+		partNum:  0,
+	}, {
+		testName: "NonexistPartition",
+		disk:     diskName,
+		partNum:  100,
+	}, {
+		testName: "EmptyDiskName",
+		disk:     "",
+		partNum:  1,
+	},
 	}
 
 	for _, input := range testData {
 		t.Run(input.testName, func(t *testing.T) {
-			res, err := ReadPartitionSize(input.disk, input.partNum)
-			if (err != nil) != input.expErr {
-				if input.expErr {
-					t.Fatalf("error not found in test %s", input.testName)
-				} else {
-					t.Fatalf("error in test %s", input.testName)
-				}
-			}
-			if !input.expErr {
-				if res != input.want {
-					t.Fatalf("wrong result: %s %d to %d, exp: %d", input.disk, input.partNum, res, input.want)
-				}
+			_, err := ReadPartitionSize(input.disk, input.partNum)
+			if err == nil {
+				t.Fatalf("error not found in test %s", input.testName)
 			}
 		})
 	}
 }
 
-func TestReadPartitionStart(t *testing.T) {
+func TestReadPartitionSizePasses(t *testing.T) {
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+
+	diskName := testNames.DiskName
+
+	input := struct {
+		testName string
+		disk     string
+		partNum  int
+		want     int
+	}{
+		testName: "200KPart",
+		disk:     diskName,
+		partNum:  8,
+		want:     200,
+	}
+
+	res, err := ReadPartitionSize(input.disk, input.partNum)
+	if err != nil {
+
+	}
+	if res != 200 {
+		t.Fatalf("wrong result: %s partition %d at %d, exp: %d", input.disk, input.partNum, res, input.want)
+	}
+}
+
+func TestReadPartitionStartFails(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
 	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
@@ -96,51 +104,57 @@ func TestReadPartitionStart(t *testing.T) {
 		testName string
 		disk     string
 		partNum  int
-		want     int
-		expErr   bool
 	}{
 		{
-			"100KPart",
-			diskName,
-			8,
-			200,
-			false,
+			testName: "InvalidDisk",
+			disk:     "./disk_file/no_disk",
+			partNum:  8,
 		}, {
-			"InvalidDisk",
-			"./disk_file/no_disk",
-			8,
-			0,
-			true,
+			testName: "InvalidPartition",
+			disk:     diskName,
+			partNum:  0,
 		}, {
-			"InvalidPartition",
-			diskName,
-			0,
-			0,
-			true,
-		}, {
-			"NonexistPartition",
-			diskName,
-			1000,
-			0,
-			true,
+			testName: "NonexistPartition",
+			disk:     diskName,
+			partNum:  1000,
 		},
 	}
 
 	for _, input := range testData {
 		t.Run(input.testName, func(t *testing.T) {
-			res, err := ReadPartitionSize(input.disk, input.partNum)
-			if (err != nil) != input.expErr {
-				if input.expErr {
-					t.Fatalf("error not found in test %s", input.testName)
-				} else {
-					t.Fatalf("error in test %s", input.testName)
-				}
+			_, err := ReadPartitionStart(input.disk, input.partNum)
+			if err == nil {
+				t.Fatalf("error not found in test %s", input.testName)
 			}
-			if !input.expErr {
-				if res != input.want {
-					t.Fatalf("wrong result: %s %d to %d, exp: %d", input.disk, input.partNum, res, input.want)
-				}
-			}
+
 		})
+	}
+}
+
+func TestReadPartitionStartPasses(t *testing.T) {
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+
+	diskName := testNames.DiskName
+
+	input := struct {
+		testName string
+		disk     string
+		partNum  int
+		want     int
+	}{
+		testName: "PartStartAt434",
+		disk:     diskName,
+		partNum:  1,
+		want:     434,
+	}
+
+	start, err := ReadPartitionStart(input.disk, input.partNum)
+	if err != nil {
+		t.Fatalf("error in test %s, error msg: (%v)", input.testName, err)
+	}
+	if start != input.want {
+		t.Fatalf("wrong result in test %s, start: %d, expected: %d", input.testName, start, input.want)
 	}
 }

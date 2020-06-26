@@ -16,7 +16,6 @@ package tools
 
 import (
 	"cos-customizer/tools/partutil"
-	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -29,66 +28,89 @@ import (
 func ExtendOEMPartition(disk string, statePartNum, oemPartNum int, oemSize string) error {
 	const SECTOR = 512
 
-	if len(disk) <= 0 || statePartNum <= 0 || oemPartNum <= 0 {
-		return errors.New("invalid input for disk name or partition number")
+	if len(disk) <= 0 || statePartNum <= 0 || oemPartNum <= 0 || len(oemSize) <= 0 {
+		return fmt.Errorf("invalid input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s",
+			disk, statePartNum, oemPartNum, oemSize)
 	}
 
 	// read new size of OEM partition.
 	newOEMSizeBytes, err := partutil.ConvertSizeToBytes(oemSize)
 	if err != nil {
-		return err
+		return fmt.Errorf("error in reading new OEM size, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 
 	// read original size of OEM partition.
 	oldOEMSize, err := partutil.ReadPartitionSize(disk, oemPartNum)
 	if err != nil {
-		return err
+		return fmt.Errorf("error in reading old OEM size, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 	oldOEMSizeBytes := oldOEMSize * SECTOR // change unit to bytes.
 
 	if newOEMSizeBytes <= oldOEMSizeBytes {
-		log.Printf("\n!!!!!!!WARNING!!!!!!!:\noemSize: %d bytes is not larger than the original OEM partition size: %d bytes, nothing is done\n", newOEMSizeBytes, oldOEMSizeBytes)
+		log.Printf("\n!!!!!!!WARNING!!!!!!!\n"+
+			"oemSize: %d bytes is not larger than the original OEM partition size: %d bytes, "+
+			"nothing is done\n "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s",
+			newOEMSizeBytes, oldOEMSizeBytes, disk, statePartNum, oemPartNum, oemSize)
 		return nil
 	}
 
 	// print the old partition table.
 	table, err := partutil.ReadPartitionTable(disk)
 	if err != nil {
-		return fmt.Errorf("cannot read partition table of %s", disk)
+		return fmt.Errorf("cannot read old partition table of %s, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, disk, statePartNum, oemPartNum, oemSize, err)
 	}
 	log.Printf("\nOld partition table:\n%s\n", table)
 
 	// record the original start sector of the stateful partition.
 	oldStartSector, err := partutil.ReadPartitionStart(disk, statePartNum)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot read old stateful partition start, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 
 	// move the stateful partition.
 	if err := partutil.MovePartition(disk, statePartNum, "+"+oemSize); err != nil {
-		return err
+		return fmt.Errorf("error in moving stateful partition, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 
 	// record the new start sector of the stateful partition.
 	newStartSector, err := partutil.ReadPartitionStart(disk, statePartNum)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot read new stateful partition start, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 
 	// move OEM partition to the original start sector of the stateful partition.
 	if err := partutil.MovePartition(disk, oemPartNum, strconv.Itoa(oldStartSector)); err != nil {
-		return err
+		return fmt.Errorf("error in moving OEM partition, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 
 	// extend the OEM partition.
 	if err = partutil.ExtendPartition(disk, oemPartNum, newStartSector-1); err != nil {
-		return err
+		return fmt.Errorf("error in extending OEM partition, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 
 	// print the new partition table.
 	table, err = partutil.ReadPartitionTable(disk)
 	if err != nil {
-		return fmt.Errorf("cannot read partition table of %s", disk)
+		return fmt.Errorf("cannot read new partition table of %s, "+
+			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
+			"error msg: (%v)", disk, disk, statePartNum, oemPartNum, oemSize, err)
 	}
 	log.Printf("\nCompleted extending OEM partition\n\n New partition table:\n%s\n", table)
 	return nil

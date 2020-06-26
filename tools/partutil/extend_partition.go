@@ -16,7 +16,6 @@ package partutil
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -27,53 +26,67 @@ import (
 
 // ExtendPartition extends a partition to a specific end sector.
 func ExtendPartition(disk string, partNumInt, end int) error {
-	if len(disk) <= 0 || partNumInt <= 0 {
-		return errors.New("invalid disk name or partition number")
+	if len(disk) <= 0 || partNumInt <= 0 || end <= 0 {
+		return fmt.Errorf("invalid disk name, partition number or end sector, "+
+			"input: disk=%s, partNumInt=%d, end sector=%d. ", disk, partNumInt, end)
 	}
 
 	// get partition number string
-	partNum := PartNumIntToString(disk, partNumInt)
+	partNum, err := PartNumIntToString(disk, partNumInt)
+	if err != nil {
+		return fmt.Errorf("error in converting partition number, "+
+			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"error msg: (%v)", disk, partNumInt, end, err)
+	}
 
 	partName := disk + partNum
 	var tableBuffer bytes.Buffer
 
 	// dump partition table.
-	cmd := fmt.Sprintf("sudo sfdisk --dump %s", disk)
-	tableByte, err := exec.Command("/bin/bash", "-c", cmd).Output()
-	if Check(err, "error in dumping partition table") {
-		return err
+	tableByte, err := exec.Command("sudo", "sfdisk", "--dump", disk).Output()
+	if err != nil {
+		return fmt.Errorf("error in dumping partition table of %s, "+
+			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"error msg: (%v)", disk, disk, partNumInt, end, err)
 	}
 
 	// edit partition table.
 	tableString, err := editPartitionEnd(string(tableByte), partName, end)
-	if Check(err, fmt.Sprintf("editing partition table file of %s to ending sector at: %d", partName, end)) {
-		return err
+	if err != nil {
+		return fmt.Errorf("error when editing partition table of %s to %d, "+
+			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"error msg: (%v)", disk, end, disk, partNumInt, end, err)
 	}
 
 	tableBuffer.WriteString(tableString)
 
 	// write partition table back.
-	cmd = fmt.Sprintf("sudo sfdisk --no-reread %s", disk)
-	writeTableCmd := exec.Command("/bin/bash", "-c", cmd)
+	writeTableCmd := exec.Command("sudo", "sfdisk", "--no-reread", disk)
 	writeTableCmd.Stdin = &tableBuffer
 	writeTableCmd.Stdout = os.Stdout
 	if err := writeTableCmd.Run(); err != nil {
-		log.Printf("error in writing partition table back to %s \n", disk)
+		return fmt.Errorf("error in writing partition table back to %s, "+
+			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"error msg: (%v)", disk, disk, partNumInt, end, err)
 	}
 
 	log.Printf("\nCompleted extending %s\n\n", partName)
 
 	// check and repair file system in the partition.
-	cmd = fmt.Sprintf("sudo e2fsck -fp %s", partName)
-	if err := ExecCmdToStdout(cmd); Check(err, cmd) {
-		return err
+	cmd := fmt.Sprintf("sudo e2fsck -fp %s", partName)
+	if err := ExecCmdToStdout(cmd); err != nil {
+		return fmt.Errorf("error in checking file system of %s, "+
+			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"error msg: (%v)", partName, disk, partNumInt, end, err)
 	}
 	log.Printf("\nCompleted checking file system of %s\n\n", partName)
 
 	// resize file system in the partition.
 	cmd = fmt.Sprintf("sudo resize2fs %s", partName)
-	if err := ExecCmdToStdout(cmd); Check(err, cmd) {
-		return err
+	if err := ExecCmdToStdout(cmd); err != nil {
+		return fmt.Errorf("error in resizing file system of %s, "+
+			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"error msg: (%v)", partName, disk, partNumInt, end, err)
 	}
 
 	log.Printf("\nCompleted updating file system of %s\n\n", partName)
@@ -93,7 +106,7 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 // /dev/sdb2 : start=      206848, size=     4194304, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=60E55EA1-4EEA-9F44-A066-4720F0129089
 // /dev/sdb3 : start=     6498304, size=      204800, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=9479C34A-49A6-9442-A56F-956396DFAC20
 
-// change partition end in the partition table string to extend the partition.
+// editPartitionEnd changes partition end in the partition table string to extend the partition.
 func editPartitionEnd(table, partName string, end int) (string, error) {
 	var err error
 	lines := strings.Split(table, "\n")
@@ -113,8 +126,11 @@ func editPartitionEnd(table, partName string, end int) (string, error) {
 					if len(word) > 1 { // a valid sector number has at least 1 digits.
 						mode = 2
 						start, err = strconv.Atoi(word[:len(word)-1]) // a comma at the end.
-						if Check(err, "cannot convert start sector to int") {
-							return "", err
+						if err != nil {
+							return "", fmt.Errorf("cannot convert start sector to int, "+
+								"start string: %s, "+
+								"input: partName=%s, end=%d, "+
+								"error msg: (%v)", word, partName, end, err)
 						}
 					}
 				case 2:
@@ -125,17 +141,24 @@ func editPartitionEnd(table, partName string, end int) (string, error) {
 					if len(word) > 1 { // a valid sector number has at least 1 digits.
 
 						size, err := strconv.Atoi(word[:len(word)-1]) // a comma at the end.
-						if Check(err, "cannot convert size to int") {
-							return "", err
+						if err != nil {
+							return "", fmt.Errorf("cannot convert start sector to int, "+
+								"size string: %s, "+
+								"input: partName=%s, end=%d, "+
+								"error msg: (%v)", word, partName, end, err)
 						}
 						if end-start+1 <= size {
-							return "", errors.New("new size is not larger than the original size")
+							return "", fmt.Errorf("new size is smaller or equal to the original size, "+
+								"old size: %d, new size: %d"+
+								"input: partName=%s, end=%d, "+
+								"error msg: (%v)", size, end-start+1, partName, end, err)
 						}
 						haveValidPartition = true // Modification completed.
 						ls[j] = strconv.Itoa(end+1-start) + ","
 					}
 				default:
-					return "", errors.New("error in looking for partition")
+					return "", fmt.Errorf("error in looking for valid info, "+
+						"input: partName=%s, end=%d", partName, end)
 				}
 				if haveValidPartition {
 					break
@@ -150,7 +173,8 @@ func editPartitionEnd(table, partName string, end int) (string, error) {
 		}
 	}
 	if !haveValidPartition {
-		return "", errors.New("partition not found")
+		return "", fmt.Errorf("partition not founddd, "+
+			"input: partName=%s, end=%d", partName, end)
 	}
 	// recreate the partition table.
 	table = strings.Join(lines, "\n")

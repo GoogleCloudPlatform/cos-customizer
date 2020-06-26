@@ -39,21 +39,29 @@ import (
 func ReadPartitionSize(disk string, partNumInt int) (int, error) {
 
 	if len(disk) <= 0 || partNumInt <= 0 {
-		return 0, errors.New("empty input for disk name or partition number")
+		return 0, fmt.Errorf("invalid input: disk=%s, partNumInt=%d", disk, partNumInt)
 	}
 
 	// get partition number string
-	partNum := PartNumIntToString(disk, partNumInt)
+	partNum, err := PartNumIntToString(disk, partNumInt)
+	if err != nil {
+		return -1, fmt.Errorf("error in converting partition number, "+
+			"input: disk=%s, partNumInt=%d, "+
+			"error msg: (%v)", disk, partNumInt, err)
+	}
 
 	// dump partition table and grep the line.
 	partName := disk + partNum
 	cmd := fmt.Sprintf("sudo sfdisk --dump %s |grep %s", disk, partName)
 	line, err := exec.Command("/bin/bash", "-c", cmd).Output()
-	if Check(err, cmd) {
-		return -1, err
+	if err != nil {
+		return -1, fmt.Errorf("cannot dump partition table of %s, "+
+			"input: disk=%s, partNumInt=%d, "+
+			"error msg: (%v)", disk, disk, partNumInt, err)
 	}
-	if len(line) < 4 { // cannot find a valid info line.
-		return -1, fmt.Errorf("cannot find partition %s", partName)
+	if len(line) <= 0 { // cannot find a valid info line.
+		return -1, fmt.Errorf("cannot find partition %s, "+
+			"input: disk=%s, partNumInt=%d, ", partName, disk, partNumInt)
 	}
 	size := -1
 	ls := strings.Split(string(line), " ")
@@ -68,19 +76,23 @@ func ReadPartitionSize(disk string, partNumInt int) (int, error) {
 			if len(word) > 1 { // a valid size number has at least 1 digits.
 				mode = 2
 				size, err = strconv.Atoi(word[:len(word)-1]) // a comma at the end.
-				if Check(err, "cannot covert size sector to int") {
-					return 0, err
+				if err != nil {
+					return -1, fmt.Errorf("cannot convert %s to int, "+
+						"input: disk=%s, partNumInt=%d, "+
+						"error msg: (%v)", word[:len(word)-1], disk, partNumInt, err)
 				}
 			}
 		default:
-			return -1, errors.New("error in looking for partition")
+			return -1, fmt.Errorf("error in looking for partition, wrong state mode, "+
+				"input: disk=%s, partNumInt=%d, ", disk, partNumInt)
 		}
 		if mode == 2 {
 			break
 		}
 	}
 	if size == -1 {
-		return -1, errors.New("error in looking for partition")
+		return -1, fmt.Errorf("error in parsing partition start size, error result -1, "+
+			"input: disk=%s, partNumInt=%d, ", disk, partNumInt)
 	}
 	return size, nil
 }
@@ -92,17 +104,25 @@ func ReadPartitionStart(disk string, partNumInt int) (int, error) {
 	}
 
 	// get partition number string
-	partNum := PartNumIntToString(disk, partNumInt)
+	partNum, err := PartNumIntToString(disk, partNumInt)
+	if err != nil {
+		return -1, fmt.Errorf("error in converting partition number, "+
+			"input: disk=%s, partNumInt=%d, "+
+			"error msg: (%v)", disk, partNumInt, err)
+	}
 
 	// dump partition table and grep the line.
 	partName := disk + partNum
 	cmd := fmt.Sprintf("sudo sfdisk --dump %s |grep %s", disk, partName)
 	line, err := exec.Command("/bin/bash", "-c", cmd).Output()
-	if Check(err, cmd) {
-		return -1, err
+	if err != nil {
+		return -1, fmt.Errorf("cannot dump partition table of %s, "+
+			"input: disk=%s, partNumInt=%d, "+
+			"error msg: (%v)", disk, disk, partNumInt, err)
 	}
-	if len(line) < 4 { // cannot find a valid info line.
-		return -1, fmt.Errorf("cannot find partition %s", partName)
+	if len(line) <= 0 { // cannot find a valid info line.
+		return -1, fmt.Errorf("cannot find partition %s, "+
+			"input: disk=%s, partNumInt=%d, ", partName, disk, partNumInt)
 	}
 	start := -1
 	ls := strings.Split(string(line), " ")
@@ -117,29 +137,33 @@ func ReadPartitionStart(disk string, partNumInt int) (int, error) {
 			if len(word) > 1 { // a valid sector number has at least 1 digit.
 				mode = 2
 				start, err = strconv.Atoi(word[:len(word)-1]) // a comma at the end.
-				if Check(err, "cannot covert start sector to int") {
-					return 0, err
+				if err != nil {
+					return -1, fmt.Errorf("cannot convert %s to int, "+
+						"input: disk=%s, partNumInt=%d, "+
+						"error msg: (%v)", word[:len(word)-1], disk, partNumInt, err)
 				}
 			}
 		default:
-			return -1, errors.New("error in looking for partition")
+			return -1, fmt.Errorf("error in looking for partition, wrong state mode, "+
+				"input: disk=%s, partNumInt=%d, ", disk, partNumInt)
 		}
 		if mode == 2 {
 			break
 		}
 	}
 	if start == -1 {
-		return -1, errors.New("error in looking for partition")
+		return -1, fmt.Errorf("error in parsing partition start, error result -1, "+
+			"input: disk=%s, partNumInt=%d, ", disk, partNumInt)
 	}
 	return start, nil
 }
 
 // ReadPartitionTable reads the partition table of a disk.
 func ReadPartitionTable(disk string) (string, error) {
-	cmd := fmt.Sprintf("sudo sfdisk --dump %s", disk)
-	table, err := exec.Command("/bin/bash", "-c", cmd).Output()
-	if Check(err, cmd) {
-		return "", err
+	table, err := exec.Command("sudo", "sfdisk", "--dump", disk).Output()
+	if err != nil {
+		return "", fmt.Errorf("cannot dump partition table of %s, "+
+			"error msg: (%v)", disk, err)
 	}
 	return string(table), nil
 }

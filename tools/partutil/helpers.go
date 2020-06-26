@@ -16,20 +16,11 @@ package partutil
 
 import (
 	"errors"
-	"log"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 )
-
-// Check checks whether err is returned and print error message.
-func Check(e error, msg string) bool {
-	if e != nil {
-		log.Printf("ERROR!!!!\n %s\n %s\n\n", msg, e.Error())
-		return true
-	}
-	return false
-}
 
 // ExecCmdToStdout runs a command and output to stdout.
 func ExecCmdToStdout(cmdLine string) error {
@@ -56,43 +47,45 @@ func ConvertSizeToBytes(size string) (int, error) {
 	}
 
 	if size[0] < '0' || size[0] > '9' {
-		return -1, errors.New("invalid oemSize")
+		return -1, fmt.Errorf("invalid oemSize, first char should be digit, "+
+			"input size: %s", size)
 	}
 
 	switch size[l-1] {
 	case 'B':
 		res, err = strconv.Atoi(size[0 : l-1])
-		if Check(err, "cannot convert oemSize to int") {
-			return -1, err
+		if err != nil {
+			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
 		}
 		res *= B
 	case 'K':
 		res, err = strconv.Atoi(size[0 : l-1])
-		if Check(err, "cannot convert oemSize to int") {
-			return -1, err
+		if err != nil {
+			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
 		}
 		res *= K
 	case 'M':
 		res, err = strconv.Atoi(size[0 : l-1])
-		if Check(err, "cannot convert oemSize to int") {
-			return -1, err
+		if err != nil {
+			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
 		}
 		res *= M
 	case 'G':
 		res, err = strconv.Atoi(size[0 : l-1])
-		if Check(err, "cannot convert oemSize to int") {
-			return -1, err
+		if err != nil {
+			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
 		}
 		res *= G
 	default:
 		if size[l-1] >= '0' && size[l-1] <= '9' {
 			res, err = strconv.Atoi(size)
-			if Check(err, "cannot convert oemSize to int") {
-				return -1, err
+			if err != nil {
+				return -1, fmt.Errorf("cannot convert %s to int", size)
 			}
 			res *= SEC
 		} else {
-			return -1, errors.New("wrong format for oemSize")
+			return -1, fmt.Errorf("wrong format for oemSize, input: %s, "+
+				"expecting input like 10G, 200M, 600K, 5000B or 1024", size)
 		}
 	}
 	return res, nil
@@ -101,10 +94,13 @@ func ConvertSizeToBytes(size string) (int, error) {
 // PartNumIntToString converts input int partNumInt into string,
 // if disk ends with number, add 'p' to the front.
 // Example: /dev/loop5p1
-func PartNumIntToString(disk string, partNumInt int) string {
+func PartNumIntToString(disk string, partNumInt int) (string, error) {
+	if len(disk) <= 0 {
+		return "", errors.New("empty disk name")
+	}
 	partNum := strconv.Itoa(partNumInt)
 	if disk[len(disk)-1] >= '0' && disk[len(disk)-1] <= '9' {
 		partNum = "p" + partNum
 	}
-	return partNum
+	return partNum, nil
 }

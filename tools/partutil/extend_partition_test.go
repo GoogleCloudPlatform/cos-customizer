@@ -16,6 +16,7 @@ package partutil
 
 import (
 	"cos-customizer/tools/partutil/partutiltest"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,13 +24,18 @@ import (
 	"testing"
 )
 
-func TestExtendPartition(t *testing.T) {
+// A file in tools/partutil/disk_file is used as the simulation of a disk.
+// When a test program starts, it will copy the file and work on it. Its size is 600K. It has three partitions as follows:
+// 1.partition 8, OEM partition, 100K
+// 2.partition 2, middle partition, 100K
+// 3.partition 1, stateful partition, 100K
+
+func TestExtendPartitionFails(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_extend_partition_fails", "", t, &testNames)
 
 	diskName := testNames.DiskName
-
 	testData := []struct {
 		testName string
 		disk     string
@@ -37,42 +43,41 @@ func TestExtendPartition(t *testing.T) {
 		end      int
 	}{
 		{
-			"SameSize",
-			diskName,
-			1,
-			633,
+			testName: "SameSize",
+			disk:     diskName,
+			partNum:  1,
+			end:      633,
 		}, {
-			"InvalidDisk",
-			"./disk_file/no_disk",
-			8,
-			833,
+			testName: "InvalidDisk",
+			disk:     "./disk_file/no_disk",
+			partNum:  1,
+			end:      833,
 		}, {
-			"InvalidPartition",
-			diskName,
-			0,
-			833,
+			testName: "InvalidPartition",
+			disk:     diskName,
+			partNum:  0,
+			end:      833,
 		}, {
-			"NonexistPartition",
-			diskName,
-			100,
-			833,
+			testName: "NonexistPartition",
+			disk:     diskName,
+			partNum:  100,
+			end:      833,
 		}, {
-			"SmallerSize",
-			diskName,
-			1,
-			500,
+			testName: "SmallerSize",
+			disk:     diskName,
+			partNum:  100,
+			end:      500,
 		}, {
-			"EmptyDiskName",
-			"",
-			1,
-			833,
+			testName: "EmptyDiskName",
+			disk:     "",
+			partNum:  100,
+			end:      833,
+		}, {
+			testName: "TooLargeSize",
+			disk:     diskName,
+			partNum:  1,
+			end:      3000,
 		},
-		// {
-		// 	"TooLargeSize",
-		// 	diskName,
-		// 	1,
-		// 	3000,
-		// },
 	}
 
 	for _, input := range testData {
@@ -82,47 +87,62 @@ func TestExtendPartition(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExtendPartitionPasses(t *testing.T) {
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_extend_partition_passes", "", t, &testNames)
+
+	diskName := testNames.DiskName
 
 	if err := ExtendPartition(diskName, 1, 833); err != nil {
-		t.Fatal("error when extending partition 1 to 833")
+		t.Fatalf("error when extending partition 1 to 833, error msg: (%v)", err)
 	}
 
 	if err := os.Mkdir("./mt", 0777); err != nil {
-		t.Fatal("cannot create mount point")
+		t.Fatal("cannot create mount point ./mts")
 	}
 	defer os.Remove("./mt")
 
-	cmdM := fmt.Sprintf("sudo mount %sp1 mt", diskName)
-	if err := exec.Command("bash", "-c", cmdM).Run(); err != nil {
-		t.Fatalf("error mounting disk file")
+	if err := exec.Command("sudo", "mount", diskName+"p1", "mt").Run(); err != nil {
+		t.Fatalf("error mounting disk file, partName: %s, error msg: (%v)", diskName+"p1", err)
 	}
-	cmdM = "sudo umount mt"
-	defer exec.Command("bash", "-c", cmdM).Run()
+	defer exec.Command("sudo", "umount", "mt").Run()
+
 	cmdD := "df -h | grep mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
-		t.Fatal("error reading df")
+		t.Fatal("error reading df -h")
 	}
-	if readSize(string(out)) <= 180 {
-		t.Fatalf("wrong file system size of partition 1\n INFO: %s", string(out))
+	size, err := readSize(string(out))
+	if err != nil {
+		t.Fatalf("cannot read fs size from df -h, "+
+			"df line: %s, error msg:%v. ", string(out), err)
+	}
+	if size <= 180 {
+		t.Fatalf("wrong fs size of %s, "+
+			"actual size: %d, expected size: >180", diskName+"p1", size)
 	}
 }
 
-func readSize(out string) int {
+// readSize reads fs size from df -h, looking for the first unit K
+// to find the size
+func readSize(out string) (int, error) {
 	pos := 0
 	res := -1
 	for pos < len(out) && out[pos] != 'K' {
 		pos++
 	}
 	if pos == len(out) {
-		return -1
+		return 0, errors.New("cannot find unit K")
 	}
 	if !(out[pos-3] >= '0' && out[pos-3] <= '9') {
-		return -1
+		return 0, errors.New("have less than 3 digits")
 	}
 	res, err := strconv.Atoi(out[pos-3 : pos])
 	if err != nil {
-		return -1
+		return 0, fmt.Errorf("cannot convert %s to int", string(out[pos-3:pos]))
 	}
-	return res
+	return res, nil
 }

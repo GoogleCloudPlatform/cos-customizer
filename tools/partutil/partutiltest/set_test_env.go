@@ -32,7 +32,7 @@ type TestNames struct {
 func SetupFakeDisk(copyName, srcPrefix string, t *testing.T, testNames *TestNames) {
 	src, err := os.Open(fmt.Sprintf("./%sdisk_file/ori_disk", srcPrefix))
 	if err != nil {
-		t.Fatal("cannot open ori_disk")
+		t.Fatal("setting up fake disk, cannot open test disk file: ori_disk")
 	}
 	defer src.Close()
 
@@ -40,18 +40,17 @@ func SetupFakeDisk(copyName, srcPrefix string, t *testing.T, testNames *TestName
 	testNames.CopyFile = copyFile
 	dest, err := os.Create(copyFile)
 	if err != nil {
-		t.Fatal("cannot create tmp disk file")
+		t.Fatal("setting up fake disk, cannot create tmp disk file")
 	}
 
 	if _, err := io.Copy(dest, src); err != nil {
-		t.Fatal("error copying disk file")
+		t.Fatal("setting up fake disk, cannot copy tmp disk file")
 	}
 	dest.Close()
 
-	cmd := fmt.Sprintf("sudo losetup -fP --show %s", copyFile)
-	out, err := exec.Command("bash", "-c", cmd).Output()
+	out, err := exec.Command("sudo", "losetup", "-fP", "--show", copyFile).Output()
 	if err != nil {
-		t.Fatal("error losetup disk file")
+		t.Fatal("setting up fake disk, cannot losetup fake disk file")
 	}
 	diskName := string(out)
 	testNames.DiskName = diskName[:len(diskName)-1]
@@ -60,8 +59,7 @@ func SetupFakeDisk(copyName, srcPrefix string, t *testing.T, testNames *TestName
 // TearDown delete the loop device and the copied file for testing environment.
 func TearDown(testNames *TestNames) {
 	if testNames.DiskName != "" {
-		cmd := fmt.Sprintf("sudo losetup -d %s", testNames.DiskName)
-		exec.Command("bash", "-c", cmd).Run()
+		exec.Command("sudo", "losetup", "-d", testNames.DiskName).Run()
 	}
 	if testNames.CopyFile != "" {
 		os.Remove(testNames.CopyFile)

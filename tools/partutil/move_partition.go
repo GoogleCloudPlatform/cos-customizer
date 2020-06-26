@@ -15,7 +15,6 @@
 package partutil
 
 import (
-	"errors"
 	"fmt"
 	"log"
 )
@@ -23,13 +22,15 @@ import (
 // MovePartition moves a partition to a start sector.
 // It takes destination input like 2048 (absolute sector number), +5G or -200M.
 func MovePartition(disk string, partNumInt int, dest string) error {
-	if len(disk) <= 0 || partNumInt <= 0 {
-		return errors.New("empty disk name or partition number")
+	if len(disk) <= 0 || partNumInt <= 0 || len(dest) <= 0 {
+		return fmt.Errorf("invalid input: disk=%s, partNumInt=%d, dest=%s", disk, partNumInt, dest)
 	}
 
 	cmd := fmt.Sprintf("echo %s | sudo sfdisk --no-reread --move-data=/dev/null %s -N %d", dest, disk, partNumInt)
-	if err := ExecCmdToStdout(cmd); Check(err, cmd) {
-		return err
+	if err := ExecCmdToStdout(cmd); err != nil {
+		return fmt.Errorf("error in executing sfdisk --move-data, "+
+			"input: disk=%s, partNumInt=%d, dest=%s, "+
+			"error msg:%v. ", disk, partNumInt, dest, err)
 	}
 	log.Printf("\nCompleted moving %s%d \n\n", disk, partNumInt)
 	return nil

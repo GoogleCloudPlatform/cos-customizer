@@ -15,113 +15,117 @@
 package partutil
 
 import (
-	"errors"
 	"testing"
 )
 
-func TestCheck(t *testing.T) {
-	var testData = []struct {
+func TestConvertSizeToBytesFails(t *testing.T) {
+	testData := []struct {
 		testName string
-		err      error
-		errStr   string
-		want     bool
+		input    string
 	}{
 		{
-			"error with msg",
-			errors.New("testing error"),
-			"msg:testing error",
-			true,
+			testName: "InvalidSuffix",
+			input:    "10T",
 		}, {
-			"error with no msg",
-			errors.New(""),
-			"",
-			true,
+			testName: "InvalidNumber",
+			input:    "56AXM",
 		}, {
-			"nil error",
-			nil,
-			"",
-			false,
+			testName: "EmptyString",
+			input:    "",
+		}, {
+			testName: "IntOverflow",
+			input:    "654654654654654654654654654654654654654654654654321321654654654",
 		},
 	}
 
 	for _, input := range testData {
 		t.Run(input.testName, func(t *testing.T) {
-			if Check(input.err, input.errStr) != input.want {
-				t.Errorf("wrongly detect error %v", input.err)
+			_, err := ConvertSizeToBytes(input.input)
+			if err == nil {
+				t.Fatalf("error not found in test %s", input.testName)
 			}
 		})
 	}
 }
 
-func TestConvertSizeToBytes(t *testing.T) {
+func TestConvertSizeToBytesPasses(t *testing.T) {
 	testData := []struct {
 		testName string
-		in       string
+		input    string
 		want     int
-		expErr   bool
 	}{
 		{
-			"ValidInputSector",
-			"4194304",
-			2147483648,
-			false,
+			testName: "ValidInputSector",
+			input:    "4194304",
+			want:     2147483648,
 		}, {
-			"ValidInputB",
-			"4194304B",
-			4194304,
-			false,
+			testName: "ValidInputB",
+			input:    "4194304B",
+			want:     4194304,
 		}, {
-			"ValidInputK",
-			"500K",
-			512000,
-			false,
+			testName: "ValidInputK",
+			input:    "500K",
+			want:     512000,
 		}, {
-			"ValidInputM",
-			"456M",
-			478150656,
-			false,
+			testName: "ValidInputM",
+			input:    "456M",
+			want:     478150656,
 		}, {
-			"ValidInputG",
-			"321G",
-			344671125504,
-			false,
-		}, {
-			"InvalidSuffix",
-			"10T",
-			0,
-			true,
-		}, {
-			"InvalidNumber",
-			"56AXM",
-			0,
-			true,
-		}, {
-			"EmptyString",
-			"",
-			0,
-			true,
-		}, {
-			"IntOverflow",
-			"654654654654654654654654654654654654654654654654321321654654654",
-			0,
-			true,
+			testName: "ValidInputG",
+			input:    "321G",
+			want:     344671125504,
 		},
 	}
 
 	for _, input := range testData {
 		t.Run(input.testName, func(t *testing.T) {
-			res, err := ConvertSizeToBytes(input.in)
-			if (err != nil) != input.expErr {
-				if input.expErr {
-					t.Fatalf("error not found in test %s", input.testName)
-				} else {
-					t.Fatalf("error in test %s", input.testName)
-				}
+			res, err := ConvertSizeToBytes(input.input)
+			if err != nil {
+				t.Fatalf("errorin test %s, error msg: (%v)", input.testName, err)
 			}
-			if !input.expErr {
-				if res != input.want {
-					t.Fatalf("wrong result: %s to %d, exp: %d", input.in, res, input.want)
-				}
+			if res != input.want {
+				t.Fatalf("wrong result: %s to %d, expect: %d", input.input, res, input.want)
+			}
+		})
+	}
+}
+
+func TestPartNumIntToStringFails(t *testing.T) {
+	_, err := PartNumIntToString("", 1)
+	if err == nil {
+		t.Fatal("error not found in test EmptyDiskName")
+	}
+}
+
+func TestPartNumIntToStringPasses(t *testing.T) {
+	testData := []struct {
+		testName   string
+		diskName   string
+		partNumInt int
+		want       string
+	}{
+		{
+			testName:   "LetterEndDisk",
+			diskName:   "/dev/sda",
+			partNumInt: 1,
+			want:       "/dev/sda1",
+		},
+		{
+			testName:   "NumberEndDisk",
+			diskName:   "/dev/loop5",
+			partNumInt: 1,
+			want:       "/dev/loop5p1",
+		},
+	}
+
+	for _, input := range testData {
+		t.Run(input.testName, func(t *testing.T) {
+			res, err := PartNumIntToString(input.diskName, input.partNumInt)
+			if err != nil {
+				t.Fatalf("error in test %s, error msg: (%v)", input.testName, err)
+			}
+			if res != input.want {
+				t.Fatalf("error in test %s, wrong result: %s, expected: %s", input.testName, res, input.want)
 			}
 		})
 	}
