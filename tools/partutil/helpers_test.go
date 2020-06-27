@@ -108,13 +108,13 @@ func TestPartNumIntToStringPasses(t *testing.T) {
 			testName:   "LetterEndDisk",
 			diskName:   "/dev/sda",
 			partNumInt: 1,
-			want:       "/dev/sda1",
+			want:       "1",
 		},
 		{
 			testName:   "NumberEndDisk",
 			diskName:   "/dev/loop5",
 			partNumInt: 1,
-			want:       "/dev/loop5p1",
+			want:       "p1",
 		},
 	}
 
