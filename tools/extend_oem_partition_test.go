@@ -23,7 +23,7 @@ import (
 	"testing"
 )
 
-// A file in tools/partutil/disk_file is used as the simulation of a disk.
+// A file in tools/partutil/testdata is used as the simulation of a disk.
 // When a test program starts, it will copy the file and work on it. Its size is 600K. It has three partitions as follows:
 // 1.partition 8, OEM partition, 100K
 // 2.partition 2, middle partition, 100K
@@ -45,7 +45,7 @@ func TestExtendOEMPartitionFails(t *testing.T) {
 	}{
 		{
 			testName:     "InvalidDisk",
-			disk:         "./partutil/disk_file/no_disk",
+			disk:         "./partutil/testdata/no_disk",
 			statePartNum: 1,
 			oemPartNum:   8,
 			size:         "200K",

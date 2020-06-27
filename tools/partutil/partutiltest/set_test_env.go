@@ -30,13 +30,13 @@ type TestNames struct {
 
 // SetupFakeDisk copys a file to simulate the disk and work on the copy for tests.
 func SetupFakeDisk(copyName, srcPrefix string, t *testing.T, testNames *TestNames) {
-	src, err := os.Open(fmt.Sprintf("./%sdisk_file/ori_disk", srcPrefix))
+	src, err := os.Open(fmt.Sprintf("./%stestdata/ori_disk", srcPrefix))
 	if err != nil {
 		t.Fatal("setting up fake disk, cannot open test disk file: ori_disk")
 	}
 	defer src.Close()
 
-	copyFile := fmt.Sprintf("./%sdisk_file/%s", srcPrefix, copyName)
+	copyFile := fmt.Sprintf("./%stestdata/%s", srcPrefix, copyName)
 	testNames.CopyFile = copyFile
 	dest, err := os.Create(copyFile)
 	if err != nil {
