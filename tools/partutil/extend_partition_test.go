@@ -101,7 +101,7 @@ func TestExtendPartitionPasses(t *testing.T) {
 	}
 
 	if err := os.Mkdir("./mt", 0777); err != nil {
-		t.Fatal("cannot create mount point ./mts")
+		t.Fatal("cannot create mount point ./mt")
 	}
 	defer os.Remove("./mt")
 
@@ -113,12 +113,12 @@ func TestExtendPartitionPasses(t *testing.T) {
 	cmdD := "df -h | grep mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
-		t.Fatal("error reading df -h")
+		t.Fatalf("error reading df -h, error msg: (%v)", err)
 	}
 	size, err := readSize(string(out))
 	if err != nil {
 		t.Fatalf("cannot read fs size from df -h, "+
-			"df line: %s, error msg:%v. ", string(out), err)
+			"df line: %s, error msg: (%v) ", string(out), err)
 	}
 	if size <= 180 {
 		t.Fatalf("wrong fs size of %s, "+

@@ -32,7 +32,9 @@ type TestNames struct {
 func SetupFakeDisk(copyName, srcPrefix string, t *testing.T, testNames *TestNames) {
 	src, err := os.Open(fmt.Sprintf("./%stestdata/ori_disk", srcPrefix))
 	if err != nil {
-		t.Fatal("setting up fake disk, cannot open test disk file: ori_disk")
+		t.Fatalf("setting up fake disk, cannot open test disk file: ori_disk, "+
+			"input: copyName=%s, srcPrefix=%s, "+
+			"error msg: (%v)", copyName, srcPrefix, err)
 	}
 	defer src.Close()
 
@@ -40,17 +42,23 @@ func SetupFakeDisk(copyName, srcPrefix string, t *testing.T, testNames *TestName
 	testNames.CopyFile = copyFile
 	dest, err := os.Create(copyFile)
 	if err != nil {
-		t.Fatal("setting up fake disk, cannot create tmp disk file")
+		t.Fatalf("setting up fake disk, cannot create tmp disk file, "+
+			"input: copyName=%s, srcPrefix=%s, "+
+			"error msg: (%v)", copyName, srcPrefix, err)
 	}
 
 	if _, err := io.Copy(dest, src); err != nil {
-		t.Fatal("setting up fake disk, cannot copy tmp disk file")
+		t.Fatalf("setting up fake disk, cannot copy tmp disk file, "+
+			"input: copyName=%s, srcPrefix=%s, "+
+			"error msg: (%v)", copyName, srcPrefix, err)
 	}
 	dest.Close()
 
 	out, err := exec.Command("sudo", "losetup", "-fP", "--show", copyFile).Output()
 	if err != nil {
-		t.Fatal("setting up fake disk, cannot losetup fake disk file")
+		t.Fatalf("setting up fake disk, cannot losetup fake disk file, "+
+			"input: copyName=%s, srcPrefix=%s, "+
+			"error msg: (%v)", copyName, srcPrefix, err)
 	}
 	diskName := string(out)
 	testNames.DiskName = diskName[:len(diskName)-1]

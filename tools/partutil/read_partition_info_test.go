@@ -28,7 +28,7 @@ import (
 func TestReadPartitionSizeFails(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_read_partition_size_fails", "", t, &testNames)
 
 	diskName := testNames.DiskName
 
@@ -68,7 +68,7 @@ func TestReadPartitionSizeFails(t *testing.T) {
 func TestReadPartitionSizePasses(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_read_partition_size_passes", "", t, &testNames)
 
 	diskName := testNames.DiskName
 
@@ -88,7 +88,7 @@ func TestReadPartitionSizePasses(t *testing.T) {
 	if err != nil {
 
 	}
-	if res != 200 {
+	if res != input.want {
 		t.Fatalf("wrong result: %s partition %d at %d, exp: %d", input.disk, input.partNum, res, input.want)
 	}
 }
@@ -96,7 +96,7 @@ func TestReadPartitionSizePasses(t *testing.T) {
 func TestReadPartitionStartFails(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_read_partition_start_fails", "", t, &testNames)
 
 	diskName := testNames.DiskName
 
@@ -134,7 +134,7 @@ func TestReadPartitionStartFails(t *testing.T) {
 func TestReadPartitionStartPasses(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_read_partition_start_passes", "", t, &testNames)
 
 	diskName := testNames.DiskName
 

@@ -29,7 +29,7 @@ func ExtendOEMPartition(disk string, statePartNum, oemPartNum int, oemSize strin
 	const SECTOR = 512
 
 	if len(disk) <= 0 || statePartNum <= 0 || oemPartNum <= 0 || len(oemSize) <= 0 {
-		return fmt.Errorf("invalid input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s",
+		return fmt.Errorf("empty or non-positive input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s",
 			disk, statePartNum, oemPartNum, oemSize)
 	}
 
@@ -69,7 +69,7 @@ func ExtendOEMPartition(disk string, statePartNum, oemPartNum int, oemSize strin
 	log.Printf("\nOld partition table:\n%s\n", table)
 
 	// record the original start sector of the stateful partition.
-	oldStartSector, err := partutil.ReadPartitionStart(disk, statePartNum)
+	oldStateStartSector, err := partutil.ReadPartitionStart(disk, statePartNum)
 	if err != nil {
 		return fmt.Errorf("cannot read old stateful partition start, "+
 			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
@@ -84,7 +84,7 @@ func ExtendOEMPartition(disk string, statePartNum, oemPartNum int, oemSize strin
 	}
 
 	// record the new start sector of the stateful partition.
-	newStartSector, err := partutil.ReadPartitionStart(disk, statePartNum)
+	newStateStartSector, err := partutil.ReadPartitionStart(disk, statePartNum)
 	if err != nil {
 		return fmt.Errorf("cannot read new stateful partition start, "+
 			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
@@ -92,14 +92,14 @@ func ExtendOEMPartition(disk string, statePartNum, oemPartNum int, oemSize strin
 	}
 
 	// move OEM partition to the original start sector of the stateful partition.
-	if err := partutil.MovePartition(disk, oemPartNum, strconv.Itoa(oldStartSector)); err != nil {
+	if err := partutil.MovePartition(disk, oemPartNum, strconv.Itoa(oldStateStartSector)); err != nil {
 		return fmt.Errorf("error in moving OEM partition, "+
 			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
 			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
 
 	// extend the OEM partition.
-	if err = partutil.ExtendPartition(disk, oemPartNum, newStartSector-1); err != nil {
+	if err = partutil.ExtendPartition(disk, oemPartNum, newStateStartSector-1); err != nil {
 		return fmt.Errorf("error in extending OEM partition, "+
 			"input: disk=%s, statePartNum=%d, oemPartNum=%d, oemSize=%s"+
 			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)

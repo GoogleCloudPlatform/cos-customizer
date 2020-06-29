@@ -91,7 +91,7 @@ func ReadPartitionSize(disk string, partNumInt int) (int, error) {
 		}
 	}
 	if size == -1 {
-		return -1, fmt.Errorf("error in parsing partition start size, error result -1, "+
+		return -1, fmt.Errorf("error in parsing partition size, error result -1, "+
 			"input: disk=%s, partNumInt=%d, ", disk, partNumInt)
 	}
 	return size, nil

@@ -47,7 +47,7 @@ func ConvertSizeToBytes(size string) (int, error) {
 	}
 
 	if size[0] < '0' || size[0] > '9' {
-		return -1, fmt.Errorf("invalid oemSize, first char should be digit, "+
+		return -1, fmt.Errorf("invalid oemSize, the first char should be digit, "+
 			"input size: %s", size)
 	}
 

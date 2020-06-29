@@ -28,7 +28,7 @@ import (
 func TestMovePartitionFails(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_move_partition_fails", "", t, &testNames)
 
 	diskName := testNames.DiskName
 
@@ -99,12 +99,12 @@ func TestMovePartitionFails(t *testing.T) {
 func TestMovePartitionPasses(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_partition", "", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_move_partition_passes", "", t, &testNames)
 
 	diskName := testNames.DiskName
 
 	if err := MovePartition(diskName, 1, "+150K"); err != nil {
-		t.Fatalf("error in test MovePartitionByDistancePositive, error msg: (%v)", err)
+		t.Fatalf("error in test MovePartitionByDistancePos, error msg: (%v)", err)
 	}
 
 	testData := []struct {

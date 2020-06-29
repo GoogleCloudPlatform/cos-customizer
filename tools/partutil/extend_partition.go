@@ -142,7 +142,7 @@ func editPartitionEnd(table, partName string, end int) (string, error) {
 
 						size, err := strconv.Atoi(word[:len(word)-1]) // a comma at the end.
 						if err != nil {
-							return "", fmt.Errorf("cannot convert start sector to int, "+
+							return "", fmt.Errorf("cannot convert size to int, "+
 								"size string: %s, "+
 								"input: partName=%s, end=%d, "+
 								"error msg: (%v)", word, partName, end, err)
@@ -150,14 +150,13 @@ func editPartitionEnd(table, partName string, end int) (string, error) {
 						if end-start+1 <= size {
 							return "", fmt.Errorf("new size is smaller or equal to the original size, "+
 								"old size: %d, new size: %d"+
-								"input: partName=%s, end=%d, "+
-								"error msg: (%v)", size, end-start+1, partName, end, err)
+								"input: partName=%s, end=%d ", size, end-start+1, partName, end)
 						}
 						haveValidPartition = true // Modification completed.
 						ls[j] = strconv.Itoa(end+1-start) + ","
 					}
 				default:
-					return "", fmt.Errorf("error in looking for valid info, "+
+					return "", fmt.Errorf("error in looking for valid info, invalid state mode, "+
 						"input: partName=%s, end=%d", partName, end)
 				}
 				if haveValidPartition {
@@ -173,7 +172,7 @@ func editPartitionEnd(table, partName string, end int) (string, error) {
 		}
 	}
 	if !haveValidPartition {
-		return "", fmt.Errorf("partition not founddd, "+
+		return "", fmt.Errorf("partition not found, "+
 			"input: partName=%s, end=%d", partName, end)
 	}
 	// recreate the partition table.

@@ -30,8 +30,8 @@ func MovePartition(disk string, partNumInt int, dest string) error {
 	if err := ExecCmdToStdout(cmd); err != nil {
 		return fmt.Errorf("error in executing sfdisk --move-data, "+
 			"input: disk=%s, partNumInt=%d, dest=%s, "+
-			"error msg:%v. ", disk, partNumInt, dest, err)
+			"error msg: (%v)", disk, partNumInt, dest, err)
 	}
-	log.Printf("\nCompleted moving %s%d \n\n", disk, partNumInt)
+	log.Printf("\nCompleted moving %s partition %d \n\n", disk, partNumInt)
 	return nil
 }

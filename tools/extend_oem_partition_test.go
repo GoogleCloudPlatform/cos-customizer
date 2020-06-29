@@ -17,6 +17,7 @@ package tools
 import (
 	"bufio"
 	"cos-customizer/tools/partutil/partutiltest"
+	"errors"
 	"os"
 	"os/exec"
 	"strconv"
@@ -32,7 +33,7 @@ import (
 func TestExtendOEMPartitionFails(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition", "partutil/", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition_fails", "partutil/", t, &testNames)
 
 	diskName := testNames.DiskName
 
@@ -115,10 +116,10 @@ func TestExtendOEMPartitionFails(t *testing.T) {
 	}
 }
 
-func TestExtendOEMPartitionWarningCases(t *testing.T) {
+func TestExtendOEMPartitionWarnings(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition", "partutil/", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition_warnings", "partutil/", t, &testNames)
 
 	diskName := testNames.DiskName
 
@@ -156,7 +157,7 @@ func TestExtendOEMPartitionWarningCases(t *testing.T) {
 func TestExtendOEMPartitionPasses(t *testing.T) {
 	var testNames partutiltest.TestNames
 	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
-	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition", "partutil/", t, &testNames)
+	partutiltest.SetupFakeDisk("tmp_disk_extend_oem_partition_passes", "partutil/", t, &testNames)
 
 	diskName := testNames.DiskName
 
@@ -205,8 +206,11 @@ func readSize(out string) (int, error) {
 	pos := 0
 	res := -1
 	var err error
-	for out[pos] != 'K' {
+	for pos < len(out) && out[pos] != 'K' {
 		pos++
+	}
+	if pos == len(out) {
+		return -1, errors.New("cannot find unit K")
 	}
 
 	if out[pos-3] != ' ' {
@@ -234,7 +238,10 @@ func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
 	cmdD := "df -h | grep mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
-		t.Fatalf("error reading df %s, error msg: (%v)", partName, err)
+		t.Fatalf("error reading df -h of %s, error msg: (%v)", partName, err)
+	}
+	if len(out) <= 0 {
+		t.Fatalf("cannot find partition %s", partName)
 	}
 	oldSize, err := readSize(string(out))
 	if err != nil {
@@ -246,7 +253,7 @@ func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
 
 	f, err := os.Open("mt/content")
 	if err != nil {
-		t.Fatalf("cannot open file in %s, error msg: (%v)", partName, err)
+		t.Fatalf("cannot open content file in %s, error msg: (%v)", partName, err)
 	}
 	defer f.Close()
 	rd := bufio.NewReader(f)
@@ -255,6 +262,6 @@ func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
 		t.Fatalf("cannot ReadLine in %s, error msg: (%v)", partName, err)
 	}
 	if string(line) != wantLine {
-		t.Fatalf("content in %s is corrupted", partName)
+		t.Fatalf("content in %s is corrupted, actual line: %s, wanted line: %s", partName, string(line), wantLine)
 	}
 }
