@@ -17,17 +17,8 @@ package partutil
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
 	"strconv"
 )
-
-// ExecCmdToStdout runs a command and output to stdout.
-func ExecCmdToStdout(cmdLine string) error {
-	cmd := exec.Command("/bin/bash", "-c", cmdLine)
-	cmd.Stdout = os.Stdout
-	return cmd.Run()
-}
 
 // ConvertSizeToBytes converts a size string to int unit: bytes.
 // It takes a string of number with no unit (sectors), unit B, unit K, unit M, or unit G.
@@ -51,43 +42,32 @@ func ConvertSizeToBytes(size string) (int, error) {
 			"input size: %s", size)
 	}
 
-	switch size[l-1] {
-	case 'B':
+	if size[l-1] >= '0' && size[l-1] <= '9' {
+		res, err = strconv.Atoi(size)
+		if err != nil {
+			return -1, fmt.Errorf("cannot convert %s to int", size)
+		}
+		res *= SEC
+	} else {
 		res, err = strconv.Atoi(size[0 : l-1])
 		if err != nil {
 			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
 		}
-		res *= B
-	case 'K':
-		res, err = strconv.Atoi(size[0 : l-1])
-		if err != nil {
-			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
-		}
-		res *= K
-	case 'M':
-		res, err = strconv.Atoi(size[0 : l-1])
-		if err != nil {
-			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
-		}
-		res *= M
-	case 'G':
-		res, err = strconv.Atoi(size[0 : l-1])
-		if err != nil {
-			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
-		}
-		res *= G
-	default:
-		if size[l-1] >= '0' && size[l-1] <= '9' {
-			res, err = strconv.Atoi(size)
-			if err != nil {
-				return -1, fmt.Errorf("cannot convert %s to int", size)
-			}
-			res *= SEC
-		} else {
+		switch size[l-1] {
+		case 'B':
+			res *= B
+		case 'K':
+			res *= K
+		case 'M':
+			res *= M
+		case 'G':
+			res *= G
+		default:
 			return -1, fmt.Errorf("wrong format for oemSize, input: %s, "+
 				"expecting input like 10G, 200M, 600K, 5000B or 1024", size)
 		}
 	}
+
 	return res, nil
 }
 

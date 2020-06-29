@@ -15,8 +15,12 @@
 package partutil
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"os"
+	"os/exec"
+	"strconv"
 )
 
 // MovePartition moves a partition to a start sector.
@@ -26,8 +30,12 @@ func MovePartition(disk string, partNumInt int, dest string) error {
 		return fmt.Errorf("invalid input: disk=%s, partNumInt=%d, dest=%s", disk, partNumInt, dest)
 	}
 
-	cmd := fmt.Sprintf("echo %s | sudo sfdisk --no-reread --move-data=/dev/null %s -N %d", dest, disk, partNumInt)
-	if err := ExecCmdToStdout(cmd); err != nil {
+	var destBuffer bytes.Buffer
+	destBuffer.WriteString(dest)
+	cmd := exec.Command("sudo", "sfdisk", "--no-reread", "--move-data=/dev/null", disk, "-N", strconv.Itoa(partNumInt))
+	cmd.Stdin = &destBuffer
+	cmd.Stdout = os.Stdout
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error in executing sfdisk --move-data, "+
 			"input: disk=%s, partNumInt=%d, dest=%s, "+
 			"error msg: (%v)", disk, partNumInt, dest, err)

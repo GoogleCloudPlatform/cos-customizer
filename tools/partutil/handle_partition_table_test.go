@@ -20,10 +20,70 @@ import (
 )
 
 // A file in tools/partutil/testdata is used as the simulation of a disk.
-// When a test program starts, it will copy the file and work on it. Its size is 600K. It has three partitions as follows:
-// 1.partition 8, OEM partition, 100K
-// 2.partition 2, middle partition, 100K
-// 3.partition 1, stateful partition, 100K
+// Disk ori_disk: 600 KiB, 614400 bytes, 1200 sectors
+// Units: sectors of 1 * 512 = 512 bytes
+// Sector size (logical/physical): 512 bytes / 512 bytes
+// I/O size (minimum/optimal): 512 bytes / 512 bytes
+// Disklabel type: gpt
+// Disk identifier: 9CEB1C17-FCD7-8F4F-ADE7-097A2DB2F996
+
+// Device     Start   End Sectors  Size Type
+// ori_disk1    434   633     200  100K Linux filesystem
+// ori_disk2    234   433     200  100K Linux filesystem
+// ori_disk8     34   233     200  100K Linux filesystemskk
+
+// Partition table entries are not in disk order.
+
+func TestParsePartitionTableFails(t *testing.T) {
+
+	testData := struct {
+		testName string
+		table    string
+		partName string
+	}{
+
+		testName: "NoPartitionFound",
+		table:    "abc",
+		partName: "sda1",
+	}
+
+	if _, err := ParsePartitionTable(testData.table, testData.partName, false, func(p *PartContent) {}); err == nil {
+		t.Fatalf("error not found in %s", testData.testName)
+	}
+}
+
+func TestParsePartitionTablePasses(t *testing.T) {
+
+	testData := struct {
+		testName string
+		table    string
+		partName string
+		start    int
+		size     int
+		want     string
+	}{
+
+		testName: "ValidChange",
+		table:    "/dev/sdb11 : start=     4401152, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=3B41256B-E064-544A-9101-D2647C0B3A38\n/dev/sdb1 : start=     6498304, size=      204800, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=9479C34A-49A6-9442-A56F-956396DFAC20\n",
+		partName: "/dev/sdb1",
+		start:    5001,
+		size:     4096,
+		want:     "/dev/sdb11 : start=     4401152, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=3B41256B-E064-544A-9101-D2647C0B3A38\n/dev/sdb1 : start=5001, size=4096, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=9479C34A-49A6-9442-A56F-956396DFAC20\n",
+	}
+
+	res, err := ParsePartitionTable(testData.table, testData.partName, true, func(p *PartContent) {
+		p.Start = testData.start
+		p.Size = testData.size
+	})
+	if err != nil {
+		t.Fatalf("error found in %s, error msg: (%v)", testData.testName, err)
+	}
+	if res != testData.want {
+		t.Fatalf("wrong result in %s, res: %s, expected: %s", testData.testName, res, testData.want)
+
+	}
+
+}
 
 func TestReadPartitionSizeFails(t *testing.T) {
 	var testNames partutiltest.TestNames
