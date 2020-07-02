@@ -68,7 +68,7 @@ func (m *gcsManager) url(name string) string {
 
 // cleanup cleans up the managed directory.
 func (m *gcsManager) cleanup(ctx context.Context) error {
-	q := &storage.Query{"", m.managedDir(), false}
+	q := &storage.Query{Prefix: m.managedDir()}
 	it := m.gcsClient.Bucket(m.gcsBucket).Objects(ctx, q)
 	var objects []string
 	for {
