@@ -232,36 +232,36 @@ func readSize(out string) (int, error) {
 func mountAndCheck(partName, wantLine string, t *testing.T, size int) {
 	t.Helper()
 	if err := exec.Command("sudo", "mount", partName, "mt").Run(); err != nil {
-		t.Fatalf("error mounting %s, error msg: (%v)", partName, err)
+		t.Fatalf("error mounting %q, error msg: (%v)", partName, err)
 	}
 	defer exec.Command("sudo", "umount", "mt").Run()
 	cmdD := "df -h | grep mt"
 	out, err := exec.Command("bash", "-c", cmdD).Output()
 	if err != nil {
-		t.Fatalf("error reading df -h of %s, error msg: (%v)", partName, err)
+		t.Fatalf("error reading df -h of %q, error msg: (%v)", partName, err)
 	}
 	if len(out) <= 0 {
-		t.Fatalf("cannot find partition %s", partName)
+		t.Fatalf("cannot find partition %q", partName)
 	}
 	oldSize, err := readSize(string(out))
 	if err != nil {
-		t.Fatalf("cannot read fs size, the line in df -h: %s, error msg: (%v)", string(out), err)
+		t.Fatalf("cannot read fs size, the line in df -h: %q, error msg: (%v)", string(out), err)
 	}
 	if oldSize <= size {
-		t.Fatalf("wrong file system size of partition, fs info: %s, expected: %d", string(out), size)
+		t.Fatalf("wrong file system size of partition, fs info: %q, expected: %d", string(out), size)
 	}
 
 	f, err := os.Open("mt/content")
 	if err != nil {
-		t.Fatalf("cannot open content file in %s, error msg: (%v)", partName, err)
+		t.Fatalf("cannot open content file in %q, error msg: (%v)", partName, err)
 	}
 	defer f.Close()
 	rd := bufio.NewReader(f)
 	line, _, err := rd.ReadLine()
 	if err != nil {
-		t.Fatalf("cannot ReadLine in %s, error msg: (%v)", partName, err)
+		t.Fatalf("cannot ReadLine in %q, error msg: (%v)", partName, err)
 	}
 	if string(line) != wantLine {
-		t.Fatalf("content in %s is corrupted, actual line: %s, wanted line: %s", partName, string(line), wantLine)
+		t.Fatalf("content in %q is corrupted, actual line: %q, wanted line: %q", partName, string(line), wantLine)
 	}
 }

@@ -112,7 +112,7 @@ func TestMovePartitionPasses(t *testing.T) {
 		disk     string
 		partNum  int
 		dest     string
-		want     int
+		want     uint64
 	}{{
 		testName: "MovePartitionByDistanceNeg",
 		disk:     diskName,
@@ -136,7 +136,7 @@ func TestMovePartitionPasses(t *testing.T) {
 			}
 			pos, err := ReadPartitionStart(input.disk, input.partNum)
 			if err != nil {
-				t.Fatalf("cannot read partition start of %s partition %d "+
+				t.Fatalf("cannot read partition start of %q partition %d "+
 					"error msg: (%v)", input.disk, input.partNum, err)
 			}
 			if pos != input.want {

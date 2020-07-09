@@ -52,7 +52,7 @@ func TestConvertSizeToBytesPasses(t *testing.T) {
 	testData := []struct {
 		testName string
 		input    string
-		want     int
+		want     uint64
 	}{
 		{
 			testName: "ValidInputSector",
@@ -84,7 +84,7 @@ func TestConvertSizeToBytesPasses(t *testing.T) {
 				t.Fatalf("errorin test %s, error msg: (%v)", input.testName, err)
 			}
 			if res != input.want {
-				t.Fatalf("wrong result: %s to %d, expect: %d", input.input, res, input.want)
+				t.Fatalf("wrong result: %q to %d, expect: %d", input.input, res, input.want)
 			}
 		})
 	}
@@ -125,7 +125,84 @@ func TestPartNumIntToStringPasses(t *testing.T) {
 				t.Fatalf("error in test %s, error msg: (%v)", input.testName, err)
 			}
 			if res != input.want {
-				t.Fatalf("error in test %s, wrong result: %s, expected: %s", input.testName, res, input.want)
+				t.Fatalf("error in test %s, wrong result: %q, expected: %q", input.testName, res, input.want)
+			}
+		})
+	}
+}
+
+func TestConvertSizeToGBRoundUpFails(t *testing.T) {
+	testData := []struct {
+		testName string
+		input    string
+	}{
+		{
+			testName: "InvalidSuffix",
+			input:    "10T",
+		}, {
+			testName: "InvalidNumber",
+			input:    "56AXM",
+		}, {
+			testName: "EmptyString",
+			input:    "",
+		}, {
+			testName: "IntOverflow",
+			input:    "654654654654654654654654654654654654654654654654321321654654654",
+		},
+	}
+
+	for _, input := range testData {
+		t.Run(input.testName, func(t *testing.T) {
+			_, err := ConvertSizeToGBRoundUp(input.input)
+			if err == nil {
+				t.Fatalf("error not found in test %s", input.testName)
+			}
+		})
+	}
+}
+
+func TestConvertSizeToGBRoundUpPasses(t *testing.T) {
+	testData := []struct {
+		testName string
+		input    string
+		want     uint64
+	}{
+		{
+			testName: "ValidInputSector",
+			input:    "4194304",
+			want:     2,
+		}, {
+			testName: "ValidInputB",
+			input:    "4194304B",
+			want:     1,
+		}, {
+			testName: "ValidInputK",
+			input:    "500K",
+			want:     1,
+		}, {
+			testName: "ValidInputM",
+			input:    "456M",
+			want:     1,
+		}, {
+			testName: "ValidInputG",
+			input:    "321G",
+			want:     321,
+		},
+		{
+			testName: "ValidInputM2",
+			input:    "2096M",
+			want:     3,
+		},
+	}
+
+	for _, input := range testData {
+		t.Run(input.testName, func(t *testing.T) {
+			res, err := ConvertSizeToGBRoundUp(input.input)
+			if err != nil {
+				t.Fatalf("errorin test %s, error msg: (%v)", input.testName, err)
+			}
+			if res != input.want {
+				t.Fatalf("wrong result: %q to %d, expect: %d", input.input, res, input.want)
 			}
 		})
 	}
