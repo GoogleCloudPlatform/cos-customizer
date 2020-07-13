@@ -210,13 +210,27 @@ execute_state_file() {
   echo "Done running preload scripts."
 }
 
+stop_service() {
+  local -r name="$1"
+  # We don't want to call `systemctl stop` on a unit that doesn't exist.
+  # `systemctl is-active` is a good enough proxy for that, so let's use that to
+  # avoid calling `systemctl stop` on a unit that doesn't exist.
+  if systemctl -q is-active "${name}"; then
+    echo "${name} is active, stopping..."
+    systemctl stop "${name}"
+    echo "${name} stopped"
+  else
+    echo "${name} is not active, ignoring"
+  fi
+}
+
 stop_services() {
   echo "Stopping services..."
-  systemctl stop crash-reporter
-  systemctl stop crash-sender
-  systemctl stop device_policy_manager
-  systemctl stop metrics-daemon
-  systemctl stop update-engine
+  stop_service crash-reporter
+  stop_service crash-sender
+  stop_service device_policy_manager
+  stop_service metrics-daemon
+  stop_service update-engine
   echo "Done stopping services."
 }
 
