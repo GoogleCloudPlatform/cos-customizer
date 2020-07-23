@@ -100,7 +100,7 @@ func (r *RunScript) Execute(_ context.Context, f *flag.FlagSet, args ...interfac
 	}
 	files := args[0].(*fs.Files)
 	if r.script == "" {
-		log.Println("script not provided for %s step; script is required", r.Name())
+		log.Printf("script not provided for %s step; script is required\n", r.Name())
 		return subcommands.ExitFailure
 	}
 	isValid, err := fs.ArchiveHasObject(files.UserBuildContextArchive, r.script)

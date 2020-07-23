@@ -21,9 +21,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-trap 'fatal exiting due to errors' EXIT
 
 PYTHON_IMG="python:2.7.15-alpine"
+OEM_CHECK_FILE="/mnt/stateful_partition/oem"
 
 fatal() {
   echo -e "BuildFailed: ${*}"
@@ -141,6 +141,90 @@ fetch_builtin_ctx() {
   echo "Done fetching builtin build context"
 }
 
+# need to forcefully stop journald service to unmount stateful partition.
+stop_journald_service() {
+  mkdir -p /etc/systemd/system/systemd-journald.service.d
+  cat > /etc/systemd/system/systemd-journald.service.d/override.conf<<EOF
+[Service]
+Restart=no
+EOF
+
+  systemctl daemon-reload
+  stop_service systemd-journald.socket 
+  stop_service systemd-journald-dev-log.socket 
+  stop_service systemd-journald-audit.socket 
+  stop_service syslog.socket 
+  stop_service systemd-journald.service 
+}
+
+# this unit runs at shutdown time after everything but /tmp is unmounted
+create_run_after_unmount_unit(){
+  mount -o remount,exec /tmp
+  # get OEMSize user input from metadata
+  local -r oem_size="$(/usr/share/google/get_metadata_value \
+    attributes/OEMSize)"
+  cat > /etc/systemd/system/last-run.service<<EOF
+[Unit]
+Description=Run after everything unmounted
+DefaultDependencies=false
+Conflicts=shutdown.target
+Before=mnt-stateful_partition.mount usr-share-oem.mount
+After=tmp.mount
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/true
+ExecStop=/bin/bash -c '/tmp/extend-oem.bin /dev/sda 1 8 ${oem_size}|sed "s/^/BuildStatus: /"'
+TimeoutStopSec=600
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/ttyS2
+EOF
+}
+
+extend_oem_partition(){
+  echo "Checking whether need to extend OEM partition..."
+
+  # get user input from meatadata
+  local -r oem_size="$(/usr/share/google/get_metadata_value \
+    attributes/OEMSize)"
+  local -r oem_fs_size_4k="$(/usr/share/google/get_metadata_value \
+    attributes/OEMFSSize4K)"
+
+  if [[ -z "${oem_size}" ]]; then 
+    echo "No request to change OEM partition."
+    return
+  fi
+  if [[ -e "${OEM_CHECK_FILE}" ]]; then
+    echo "Resizing OEM partition file system..."
+    umount /dev/sda8
+    e2fsck -fp /dev/sda8
+    resize2fs /dev/sda8 "${oem_fs_size_4k}"
+    systemctl start usr-share-oem.mount
+    fdisk -l
+    df -h
+    echo "Successfully extended OEM partition."
+  else
+    touch "${OEM_CHECK_FILE}"
+    echo "Extending OEM partition..."
+    create_run_after_unmount_unit
+    mv builtin_ctx_dir/extend-oem.bin /tmp/extend-oem.bin
+    systemctl --no-block start last-run.service
+    stop_journald_service
+    echo "Rebooting..."
+    
+    # overwrite trap to avoid build failure triggered by reboot.
+    trap - EXIT
+    reboot
+    # keep it inside of this function until reboot kills the process
+    while :
+      do
+        sleep 1
+      done
+  fi  
+}
+
 fetch_state_file() {
   if [[ -e "state_file" ]]; then
     echo "state file already exists"
@@ -245,16 +329,19 @@ cleanup() {
   rm -rf /var/lib/systemd/*
   rm -rf /var/lib/update_engine/*
   rm -rf /var/lib/whitelist/*
+  rm -f OEM_CHECK_FILE
   echo "Done cleaning up instance state."
 }
 
 main() {
+  trap 'fatal exiting due to errors' EXIT
   enter_workdir
   setup
   wait_daisy_logging
   echo "Downloading source artifacts from GCS..."
   fetch_user_ctx
   fetch_builtin_ctx
+  extend_oem_partition
   fetch_state_file
   docker rmi "${PYTHON_IMG}" || :
   echo "Successfully downloaded source artifacts from GCS."

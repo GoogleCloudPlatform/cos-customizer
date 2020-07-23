@@ -27,7 +27,7 @@ import (
 // It takes destination input like 2048 (absolute sector number), +5G or -200M.
 func MovePartition(disk string, partNumInt int, dest string) error {
 	if len(disk) <= 0 || partNumInt <= 0 || len(dest) <= 0 {
-		return fmt.Errorf("invalid input: disk=%s, partNumInt=%d, dest=%s", disk, partNumInt, dest)
+		return fmt.Errorf("invalid input: disk=%q, partNumInt=%d, dest=%q", disk, partNumInt, dest)
 	}
 
 	var destBuffer bytes.Buffer
@@ -37,7 +37,7 @@ func MovePartition(disk string, partNumInt int, dest string) error {
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error in executing sfdisk --move-data, "+
-			"input: disk=%s, partNumInt=%d, dest=%s, "+
+			"input: disk=%q, partNumInt=%d, dest=%q, "+
 			"error msg: (%v)", disk, partNumInt, dest, err)
 	}
 	log.Printf("\nCompleted moving %s partition %d \n\n", disk, partNumInt)

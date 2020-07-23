@@ -36,8 +36,8 @@ import (
 
 // PartContent contains the info of a partition
 type PartContent struct {
-	Start int
-	Size  int
+	Start uint64
+	Size  uint64
 }
 
 // ParsePartitionTable takes a partition table and get the start and size of the target partition.
@@ -58,23 +58,23 @@ func ParsePartitionTable(table, partName string, change bool, f func(p *PartCont
 		sizeSec := strings.Split(partInfo[1], "=")
 		var p PartContent
 		var err error
-		p.Start, err = strconv.Atoi(strings.TrimSpace(startSec[1]))
+		p.Start, err = strconv.ParseUint(strings.TrimSpace(startSec[1]), 10, 64)
 		if err != nil {
-			return "", fmt.Errorf("cannot convert %s to int, "+
-				"partition info: %s, error msg: (%v)", strings.TrimSpace(startSec[1]), line, err)
+			return "", fmt.Errorf("cannot convert %q to int, "+
+				"partition info: %q, error msg: (%v)", strings.TrimSpace(startSec[1]), line, err)
 		}
-		p.Size, err = strconv.Atoi(strings.TrimSpace(sizeSec[1]))
+		p.Size, err = strconv.ParseUint(strings.TrimSpace(sizeSec[1]), 10, 64)
 		if err != nil {
-			return "", fmt.Errorf("cannot convert %s to int, "+
-				"partition info: %s, error msg: (%v)", strings.TrimSpace(startSec[1]), line, err)
+			return "", fmt.Errorf("cannot convert %q to int, "+
+				"partition info: %q, error msg: (%v)", strings.TrimSpace(startSec[1]), line, err)
 		}
 		f(&p)
 
 		// need to rebuild the partition table.
 		if change {
-			startSec[1] = strconv.Itoa(p.Start)
+			startSec[1] = strconv.FormatUint(p.Start, 10)
 			partInfo[0] = strings.Join(startSec, "=")
-			sizeSec[1] = strconv.Itoa(p.Size)
+			sizeSec[1] = strconv.FormatUint(p.Size, 10)
 			partInfo[1] = strings.Join(sizeSec, "=")
 			content[1] = strings.Join(partInfo, ",")
 			lines[idx] = strings.Join(content, ":")
@@ -82,7 +82,7 @@ func ParsePartitionTable(table, partName string, change bool, f func(p *PartCont
 		break
 	}
 	if !foundPartition {
-		return table, fmt.Errorf("cannot find the target partition %s, "+
+		return table, fmt.Errorf("cannot find the target partition %q, "+
 			"partition table: %s", partName, table)
 	}
 
@@ -96,69 +96,69 @@ func ParsePartitionTable(table, partName string, change bool, f func(p *PartCont
 func ReadPartitionTable(disk string) (string, error) {
 	table, err := exec.Command("sudo", "sfdisk", "--dump", disk).Output()
 	if err != nil {
-		return "", fmt.Errorf("cannot dump partition table of %s, "+
+		return "", fmt.Errorf("cannot dump partition table of %q, "+
 			"error msg: (%v)", disk, err)
 	}
 	return string(table), nil
 }
 
 // ReadPartitionSize reads the size of a partition (unit:sectors of 512 Bytes).
-func ReadPartitionSize(disk string, partNumInt int) (int, error) {
+func ReadPartitionSize(disk string, partNumInt int) (uint64, error) {
 	if len(disk) <= 0 || partNumInt <= 0 {
-		return 0, fmt.Errorf("invalid input: disk=%s, partNumInt=%d", disk, partNumInt)
+		return 0, fmt.Errorf("invalid input: disk=%q, partNumInt=%d", disk, partNumInt)
 	}
 
 	// get partition number string
 	partNum, err := PartNumIntToString(disk, partNumInt)
 	if err != nil {
-		return -1, fmt.Errorf("error in converting partition number, "+
-			"input: disk=%s, partNumInt=%d, "+
+		return 0, fmt.Errorf("error in converting partition number, "+
+			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, partNumInt, err)
 	}
 	partName := disk + partNum
 
 	table, err := ReadPartitionTable(disk)
 	if err != nil {
-		return -1, fmt.Errorf("cannot read partition table of %s, "+
-			"input: disk=%s, partNumInt=%d, "+
+		return 0, fmt.Errorf("cannot read partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, err)
 	}
 
-	size := -1
+	var size uint64 = 0
 	if _, err = ParsePartitionTable(table, partName, false, func(p *PartContent) { size = p.Size }); err != nil {
-		return -1, fmt.Errorf("error parsing partition table of %s, "+
-			"input: disk=%s, partNumInt=%d, "+
+		return 0, fmt.Errorf("error parsing partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, err)
 	}
 	return size, nil
 }
 
 // ReadPartitionStart reads the start sector of a partition.
-func ReadPartitionStart(disk string, partNumInt int) (int, error) {
+func ReadPartitionStart(disk string, partNumInt int) (uint64, error) {
 	if len(disk) <= 0 || partNumInt <= 0 {
-		return 0, fmt.Errorf("invalid input: disk=%s, partNumInt=%d", disk, partNumInt)
+		return 0, fmt.Errorf("invalid input: disk=%q, partNumInt=%d", disk, partNumInt)
 	}
 
 	// get partition number string
 	partNum, err := PartNumIntToString(disk, partNumInt)
 	if err != nil {
-		return -1, fmt.Errorf("error in converting partition number, "+
-			"input: disk=%s, partNumInt=%d, "+
+		return 0, fmt.Errorf("error in converting partition number, "+
+			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, partNumInt, err)
 	}
 	partName := disk + partNum
 
 	table, err := ReadPartitionTable(disk)
 	if err != nil {
-		return -1, fmt.Errorf("cannot read partition table of %s, "+
-			"input: disk=%s, partNumInt=%d, "+
+		return 0, fmt.Errorf("cannot read partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, err)
 	}
 
-	start := -1
+	var start uint64 = 0
 	if _, err = ParsePartitionTable(table, partName, false, func(p *PartContent) { start = p.Start }); err != nil {
-		return -1, fmt.Errorf("error parsing partition table of %s, "+
-			"input: disk=%s, partNumInt=%d, "+
+		return 0, fmt.Errorf("error parsing partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, err)
 	}
 	return start, nil

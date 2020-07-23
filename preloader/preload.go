@@ -143,18 +143,35 @@ func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSp
 		return "", err
 	}
 	acceleratorsJSON, err := json.Marshal([]map[string]interface{}{})
+	if err != nil {
+		return "", err
+	}
 	if buildSpec.GPUType != "" {
 		acceleratorType := fmt.Sprintf("projects/%s/zones/%s/acceleratorTypes/%s",
 			buildSpec.Project, buildSpec.Zone, buildSpec.GPUType)
 		acceleratorsJSON, err = json.Marshal([]map[string]interface{}{
 			{"acceleratorType": acceleratorType, "acceleratorCount": 1}})
-	}
-	if err != nil {
-		return "", err
+		if err != nil {
+			return "", err
+		}
 	}
 	licensesJSON, err := json.Marshal(outputImage.Licenses)
 	if err != nil {
 		return "", err
+	}
+
+	// template content for the step resize-disk.
+	// If the oem-size is set, create the disk with the default size, and then resize the disk.
+	// Otherwise, a place holder is used. The disk is created with provided disk-size-gb or
+	// the default size. And the disk will not be resized.
+	// The place holder is needed because ResizeDisk API requires a larger size than the original disk.
+	var resizeDiskJSON string
+	if buildSpec.OEMSize != "" {
+		// actual disk size
+		resizeDiskJSON = fmt.Sprintf(`"ResizeDisks": [{"Name": "boot-disk","SizeGb": "%d"}]`, buildSpec.DiskSize)
+	} else {
+		// placeholder
+		resizeDiskJSON = `"WaitForInstancesSignal": [{"Name": "preload-vm","Interval": "2s","SerialOutput": {"Port": 3,"SuccessMatch": "BuildStatus:"}}]`
 	}
 	tmpl, err := template.New("workflow").Parse(string(tmplContents))
 	if err != nil {
@@ -168,10 +185,12 @@ func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSp
 		Labels       string
 		Accelerators string
 		Licenses     string
+		ResizeDisks  string
 	}{
 		string(labelsJSON),
 		string(acceleratorsJSON),
 		string(licensesJSON),
+		resizeDiskJSON,
 	}); err != nil {
 		w.Close()
 		os.Remove(w.Name())
@@ -218,7 +237,13 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 		return nil, err
 	}
 	var args []string
-	if buildSpec.DiskSize != 0 {
+	if buildSpec.OEMSize != "" {
+		args = append(args, "-var:oem_size", buildSpec.OEMSize)
+		args = append(args, "-var:oem_fs_size_4k", strconv.FormatUint(buildSpec.OEMFSSize4K, 10))
+	} else if buildSpec.DiskSize != 0 {
+		// If the oem-size is set, create the disk with default size,
+		// and then resize the disk in the template step "resize-disk".
+		// Otherwise, create the disk with the provided disk-size-gb.
 		args = append(args, "-var:disk_size_gb", strconv.Itoa(buildSpec.DiskSize))
 	}
 	if output.Family != "" {

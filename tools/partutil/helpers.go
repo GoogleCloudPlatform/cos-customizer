@@ -22,36 +22,36 @@ import (
 
 // ConvertSizeToBytes converts a size string to int unit: bytes.
 // It takes a string of number with no unit (sectors), unit B, unit K, unit M, or unit G.
-func ConvertSizeToBytes(size string) (int, error) {
+func ConvertSizeToBytes(size string) (uint64, error) {
 	const B = 1
 	const K = 1024
 	const M = K * 1024
 	const G = M * 1024
-	const SEC = 512
+	const Sec = 512
 
 	var err error
-	res := -1
+	var res uint64 = 0
 	l := len(size)
 
 	if l <= 0 {
-		return -1, errors.New("invalid oemSize: empty string")
+		return 0, errors.New("invalid oemSize: empty string")
 	}
 
 	if size[0] < '0' || size[0] > '9' {
-		return -1, fmt.Errorf("invalid oemSize, the first char should be digit, "+
-			"input size: %s", size)
+		return 0, fmt.Errorf("invalid oemSize, the first char should be digit, "+
+			"input size: %q", size)
 	}
 
 	if size[l-1] >= '0' && size[l-1] <= '9' {
-		res, err = strconv.Atoi(size)
+		res, err = strconv.ParseUint(size, 10, 64)
 		if err != nil {
-			return -1, fmt.Errorf("cannot convert %s to int", size)
+			return 0, fmt.Errorf("cannot convert %q to int", size)
 		}
-		res *= SEC
+		res *= Sec
 	} else {
-		res, err = strconv.Atoi(size[0 : l-1])
+		res, err = strconv.ParseUint(size[0:l-1], 10, 64)
 		if err != nil {
-			return -1, fmt.Errorf("cannot convert %s in input: %s to int", string(size[0:l-1]), size)
+			return 0, fmt.Errorf("cannot convert %q in input: %q to int", string(size[0:l-1]), size)
 		}
 		switch size[l-1] {
 		case 'B':
@@ -63,12 +63,27 @@ func ConvertSizeToBytes(size string) (int, error) {
 		case 'G':
 			res *= G
 		default:
-			return -1, fmt.Errorf("wrong format for oemSize, input: %s, "+
+			return 0, fmt.Errorf("wrong format for oemSize, input: %q, "+
 				"expecting input like 10G, 200M, 600K, 5000B or 1024", size)
 		}
 	}
 
 	return res, nil
+}
+
+// ConvertSizeToGBRoundUp converts input size to GB unit.
+// Rounded up, since extend disk can only take GB unit.
+// Used by Daisy workflow to resize the disk.
+func ConvertSizeToGBRoundUp(size string) (uint64, error) {
+	sizeByte, err := ConvertSizeToBytes(size)
+	if err != nil {
+		return 0, err
+	}
+	sizeGB := sizeByte >> 30
+	if (sizeGB << 30) != sizeByte {
+		sizeGB++
+	}
+	return sizeGB, nil
 }
 
 // PartNumIntToString converts input int partNumInt into string,

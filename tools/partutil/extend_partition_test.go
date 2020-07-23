@@ -40,7 +40,7 @@ func TestExtendPartitionFails(t *testing.T) {
 		testName string
 		disk     string
 		partNum  int
-		end      int
+		end      uint64
 	}{
 		{
 			testName: "SameSize",
@@ -106,7 +106,7 @@ func TestExtendPartitionPasses(t *testing.T) {
 	defer os.Remove("./mt")
 
 	if err := exec.Command("sudo", "mount", diskName+"p1", "mt").Run(); err != nil {
-		t.Fatalf("error mounting disk file, partName: %s, error msg: (%v)", diskName+"p1", err)
+		t.Fatalf("error mounting disk file, partName: %q, error msg: (%v)", diskName+"p1", err)
 	}
 	defer exec.Command("sudo", "umount", "mt").Run()
 
@@ -118,10 +118,10 @@ func TestExtendPartitionPasses(t *testing.T) {
 	size, err := readSize(string(out))
 	if err != nil {
 		t.Fatalf("cannot read fs size from df -h, "+
-			"df line: %s, error msg: (%v) ", string(out), err)
+			"df line: %q, error msg: (%v) ", string(out), err)
 	}
 	if size <= 180 {
-		t.Fatalf("wrong fs size of %s, "+
+		t.Fatalf("wrong fs size of %q, "+
 			"actual size: %d, expected size: >180", diskName+"p1", size)
 	}
 }
@@ -142,7 +142,7 @@ func readSize(out string) (int, error) {
 	}
 	res, err := strconv.Atoi(out[pos-3 : pos])
 	if err != nil {
-		return 0, fmt.Errorf("cannot convert %s to int", string(out[pos-3:pos]))
+		return 0, fmt.Errorf("cannot convert %q to int", string(out[pos-3:pos]))
 	}
 	return res, nil
 }

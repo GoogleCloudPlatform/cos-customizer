@@ -17,6 +17,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@package_bundle//file:packages.bzl", "packages")
+load("@rules_pkg//:pkg.bzl", "pkg_tar", "pkg_deb")
 
 # gazelle:prefix cos-customizer
 gazelle(name = "gazelle")
@@ -49,6 +50,20 @@ genrule(
     cmd = "mkdir $@",
 )
 
+genrule(
+    name = "copy_extend_oem_bin",
+    srcs = ["//tools/cmd/extend_oem:extend_oem_bin"],
+    outs = ["extend-oem.bin"],
+    cmd = "cp $< $@",
+)
+
+pkg_tar(
+    name = "remap_extend_oem_bin",
+    srcs = [":copy_extend_oem_bin"],
+    package_dir = "data/builtin_build_context/",
+)
+
+
 container_image(
     name = "cos_customizer_base",
     base = "@daisy//image",
@@ -66,6 +81,7 @@ container_image(
         ":workspace_dir",
         ":tmp_dir",
     ],
+    tars = [":remap_extend_oem_bin"],
 )
 
 go_image(

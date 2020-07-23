@@ -23,17 +23,17 @@ import (
 )
 
 // ExtendPartition extends a partition to a specific end sector.
-func ExtendPartition(disk string, partNumInt, end int) error {
+func ExtendPartition(disk string, partNumInt int, end uint64) error {
 	if len(disk) <= 0 || partNumInt <= 0 || end <= 0 {
 		return fmt.Errorf("invalid disk name, partition number or end sector, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d. ", disk, partNumInt, end)
+			"input: disk=%q, partNumInt=%d, end sector=%d. ", disk, partNumInt, end)
 	}
 
 	// get partition number string
 	partNum, err := PartNumIntToString(disk, partNumInt)
 	if err != nil {
 		return fmt.Errorf("error in converting partition number, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"input: disk=%q, partNumInt=%d, end sector=%d, "+
 			"error msg: (%v)", disk, partNumInt, end, err)
 	}
 
@@ -43,13 +43,13 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 	// dump partition table.
 	table, err := ReadPartitionTable(disk)
 	if err != nil {
-		return fmt.Errorf("cannot read partition table of %s, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+		return fmt.Errorf("cannot read partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, end sector=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, end, err)
 	}
 
-	oldSize := -1
-	newSize := -1
+	var oldSize uint64 = 0
+	var newSize uint64 = 0
 
 	// edit partition table.
 	table, err = ParsePartitionTable(table, partName, true, func(p *PartContent) {
@@ -58,13 +58,13 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 		p.Size = newSize
 	})
 	if err != nil {
-		return fmt.Errorf("error when editing partition table of %s, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+		return fmt.Errorf("error when editing partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, end sector=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, end, err)
 	}
 	if newSize <= oldSize {
 		return fmt.Errorf("new size=%d is not larger than the old size=%d, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+			"input: disk=%q, partNumInt=%d, end sector=%d, "+
 			"error msg: (%v)", newSize, oldSize, disk, partNumInt, end, err)
 	}
 
@@ -75,8 +75,8 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 	writeTableCmd.Stdin = &tableBuffer
 	writeTableCmd.Stdout = os.Stdout
 	if err := writeTableCmd.Run(); err != nil {
-		return fmt.Errorf("error in writing partition table back to %s, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+		return fmt.Errorf("error in writing partition table back to %q, "+
+			"input: disk=%q, partNumInt=%d, end sector=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, end, err)
 	}
 
@@ -86,8 +86,8 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 	cmd := exec.Command("sudo", "e2fsck", "-fp", partName)
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error in checking file system of %s, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+		return fmt.Errorf("error in checking file system of %q, "+
+			"input: disk=%q, partNumInt=%d, end sector=%d, "+
 			"error msg: (%v)", partName, disk, partNumInt, end, err)
 	}
 	log.Printf("\nCompleted checking file system of %s\n\n", partName)
@@ -96,8 +96,8 @@ func ExtendPartition(disk string, partNumInt, end int) error {
 	cmd = exec.Command("sudo", "resize2fs", partName)
 	cmd.Stdout = os.Stdout
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("error in resizing file system of %s, "+
-			"input: disk=%s, partNumInt=%d, end sector=%d, "+
+		return fmt.Errorf("error in resizing file system of %q, "+
+			"input: disk=%q, partNumInt=%d, end sector=%d, "+
 			"error msg: (%v)", partName, disk, partNumInt, end, err)
 	}
 

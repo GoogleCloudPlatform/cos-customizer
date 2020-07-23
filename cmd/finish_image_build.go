@@ -20,12 +20,14 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"cos-customizer/config"
 	"cos-customizer/fs"
 	"cos-customizer/gce"
 	"cos-customizer/preloader"
+	"cos-customizer/tools/partutil"
 
 	"github.com/google/subcommands"
 )
@@ -45,6 +47,8 @@ type FinishImageBuild struct {
 	labels         *mapVar
 	licenses       *listVar
 	inheritLabels  bool
+	oemSize        string
+	oemFSSize4K    uint64
 	diskSize       int
 	timeout        time.Duration
 }
@@ -93,6 +97,9 @@ func (f *FinishImageBuild) SetFlags(flags *flag.FlagSet) {
 	flags.BoolVar(&f.inheritLabels, "inherit-labels", false, "Indicates if the result image should inherit labels "+
 		"from the source image. Labels specified through the '-labels' flag take precedence over inherited "+
 		"labels.")
+	flags.StringVar(&f.oemSize, "oem-size", "", "Size of the new OEM partition, "+
+		"can be a number with unit like 10G, 10M, 10K or 10B, "+
+		"or without unit indicating the number of 512B sectors.")
 	flags.IntVar(&f.diskSize, "disk-size-gb", 0, "The disk size to use when creating the image in GB. Value of '0' "+
 		"indicates the default size.")
 	flags.DurationVar(&f.timeout, "timeout", time.Hour, "Timeout value of the image build process. Must be formatted "+
@@ -100,6 +107,34 @@ func (f *FinishImageBuild) SetFlags(flags *flag.FlagSet) {
 }
 
 func (f *FinishImageBuild) validate() error {
+	// The default size of a COS image (imgSize) is 10GB. And the OEM partition size should be doubled to
+	// store the hash tree of dm-verity. If the OEM partition is to be extended,
+	// the following must be true: disk-size - oem-size x 2 >= imgSize.
+	// Since we allow user input like "500M", and the "resize-disk" API can only take GB as input,
+	// the oem-size is rounded up to GB to make sure there is enough space.
+	// Extra space will be taken by the stateful partition.
+	const imgSize uint64 = 10
+	if f.oemSize != "" {
+		oemSizeBytes, err := partutil.ConvertSizeToBytes(f.oemSize)
+		if err != nil {
+			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", f.oemSize, err)
+		}
+		f.oemFSSize4K = oemSizeBytes >> 12
+		// double the oem size.
+		oemSizeBytes <<= 1
+		oemSizeGB, err := partutil.ConvertSizeToGBRoundUp(strconv.FormatUint(oemSizeBytes, 10) + "B")
+		if err != nil {
+			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", f.oemSize, err)
+		}
+		if (uint64)(f.diskSize)-oemSizeGB < imgSize {
+			return fmt.Errorf("'disk-size-gb' must be at least 'oem-size' x 2 + image size (%dGB)", imgSize)
+		}
+
+		// shrink OEM size input (rounded down) by 1M to deal with cases
+		// where disk size is 1M smaller than needed.
+		// For example oem-size=1G disk-size-gb=12. In this case the disk size is not large enough.
+		f.oemSize = strconv.FormatUint((oemSizeBytes>>20)-1, 10) + "M"
+	}
 	switch {
 	case f.imageName == "" && f.imageSuffix == "":
 		return fmt.Errorf("one of 'image-name' or 'image-suffix' must be set")
@@ -135,6 +170,8 @@ func (f *FinishImageBuild) loadConfigs(files *fs.Files) (*config.Image, *config.
 	buildConfig.Zone = f.zone
 	buildConfig.DiskSize = f.diskSize
 	buildConfig.Timeout = f.timeout.String()
+	buildConfig.OEMSize = f.oemSize
+	buildConfig.OEMFSSize4K = f.oemFSSize4K
 	outputImageConfig := config.NewImage(imageName, f.imageProject)
 	outputImageConfig.Labels = f.labels.m
 	outputImageConfig.Licenses = f.licenses.l
