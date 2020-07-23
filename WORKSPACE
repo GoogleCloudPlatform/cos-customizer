@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the License);
 # you may not use this file except in compliance with the License.
@@ -13,27 +13,31 @@
 # limitations under the License.
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 http_archive(
     name = "io_bazel_rules_go",
+    sha256 = "2d536797707dd1697441876b2e862c58839f975c8fc2f0f96636cbd428f45866",
     urls = [
-        "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/0.18.7/rules_go-0.18.7.tar.gz",
-        "https://github.com/bazelbuild/rules_go/releases/download/0.18.7/rules_go-0.18.7.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.23.5/rules_go-v0.23.5.tar.gz",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.23.5/rules_go-v0.23.5.tar.gz",
     ],
-    sha256 = "45409e6c4f748baa9e05f8f6ab6efaa05739aa064e3ab94e5a1a09849c51806a",
 )
 
 http_archive(
     name = "bazel_gazelle",
-    sha256 = "3c681998538231a2d24d0c07ed5a7658cb72bfb5fd4bf9911157c0e9ac6a2687",
-    urls = ["https://github.com/bazelbuild/bazel-gazelle/releases/download/0.17.0/bazel-gazelle-0.17.0.tar.gz"],
+    sha256 = "cdb02a887a7187ea4d5a27452311a75ed8637379a1287d8eeb952138ea485f7d",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v0.21.1/bazel-gazelle-v0.21.1.tar.gz",
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.21.1/bazel-gazelle-v0.21.1.tar.gz",
+    ],
 )
 
 http_archive(
     name = "io_bazel_rules_docker",
-    sha256 = "aed1c249d4ec8f703edddf35cbe9dfaca0b5f5ea6e4cd9e83e99f3b0d1136c3d",
-    strip_prefix = "rules_docker-0.7.0",
-    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.7.0.tar.gz"],
+    sha256 = "4521794f0fba2e20f3bf15846ab5e01d5332e587e9ce81629c7f96c793bb7036",
+    strip_prefix = "rules_docker-0.14.4",
+    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.14.4.tar.gz"],
 )
 
 http_archive(
@@ -43,11 +47,31 @@ http_archive(
     urls = ["https://github.com/GoogleContainerTools/distroless/archive/fa0765cc86064801e42a3b35f50ff2242aca9998.tar.gz"],
 )
 
+http_archive(    
+    name = "rules_pkg",       
+    sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",    
+    urls = ["https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6-1/rules_pkg-0.2.6.tar.gz"],    
+)
+
+git_repository(
+    name = "com_google_protobuf",
+    commit = "31ebe2ac71400344a5db91ffc13c4ddfb7589f92",
+    remote = "https://github.com/protocolbuffers/protobuf",
+)
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
+load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 
 go_rules_dependencies()
 
 go_register_toolchains()
+
+rules_pkg_dependencies()
 
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 
@@ -58,6 +82,12 @@ load(
     container_repositories = "repositories",
 )
 container_repositories()
+
+load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
+container_deps()
+
+load("@io_bazel_rules_docker//repositories:pip_repositories.bzl", "pip_deps")
+pip_deps()
 
 load(
     "@io_bazel_rules_docker//container:container.bzl",
@@ -96,11 +126,38 @@ go_repository(
 )
 
 go_repository(
+    name = "org_golang_google_grpc",
+    importpath = "google.golang.org/grpc",
+    urls = ["https://github.com/grpc/grpc-go/archive/v1.30.0.tar.gz"],
+    strip_prefix = "grpc-go-1.30.0",
+    sha256 = "add9d2c86ea2611a95957ae97c4369c3fc8b381d4c55ca5c0df9daaa220eda54",
+    type = "tar.gz",
+)
+
+go_repository(
+    name = "org_golang_x_net",
+    importpath = "golang.org/x/net",
+    urls = ["https://github.com/golang/net/archive/ab34263943818b32f575efc978a3d24e80b04bd7.tar.gz"],
+    strip_prefix = "net-ab34263943818b32f575efc978a3d24e80b04bd7",
+    sha256 = "7f3c48e6aa4dfed3d52639e97d216b9393d31b4c5d6a2da7a898f025d9d41ac7",
+    type = "tar.gz",
+)
+
+go_repository(
+    name = "org_golang_x_text",
+    importpath = "golang.org/x/text",
+    urls = ["https://github.com/golang/text/archive/23ae387dee1f90d29a23c0e87ee0b46038fbed0e.tar.gz"],
+    strip_prefix = "text-23ae387dee1f90d29a23c0e87ee0b46038fbed0e",
+    sha256 = "f4bd81a281c3cee2022c4825c4add086d0976563958de9d8bef86d412915ba1e",
+    type = "tar.gz",
+)
+
+go_repository(
     name = "org_golang_google_api",
     importpath = "google.golang.org/api",
     # Archives downloaded from gitiles aren't deterministic, so don't compare
     # against a fixed sha256 (https://github.com/google/gitiles/issues/84)
-    urls = ["https://code.googlesource.com/google-api-go-client/+archive/6142e720c068c6cd71f2258e007ff1991572e1d5.tar.gz"],
+    urls = ["https://code.googlesource.com/google-api-go-client/+archive/cb1f45ca288bfafb52ab824361c939d908e525ad.tar.gz"],
     type = "tar.gz",
 )
 
@@ -125,9 +182,9 @@ go_repository(
 go_repository(
     name = "com_github_googleapis_gax_go",
     importpath = "github.com/googleapis/gax-go",
-    urls = ["https://github.com/googleapis/gax-go/archive/1ef592c90f479e3ab30c6c2312e20e13881b7ea6.tar.gz"],
-    strip_prefix = "gax-go-1ef592c90f479e3ab30c6c2312e20e13881b7ea6",
-    sha256 = "bd724440d39b58ebb61a561c7ec0bb8a419438c0cfac2a5dcb3958d91205119d",
+    urls = ["https://github.com/googleapis/gax-go/archive/bd5b16380fd03dc758d11cef74ba2e3bc8b0e8c2.tar.gz"],
+    strip_prefix = "gax-go-bd5b16380fd03dc758d11cef74ba2e3bc8b0e8c2",
+    sha256 = "6ab51d8764dba1de8bde38a6784340500486052cbf225d41decf9de6230b403a",
     type = "tar.gz",
 )
 
