@@ -155,7 +155,7 @@ func saveBuildConfig(gcsBucket, gcsWorkdir, dst string) error {
 		return err
 	}
 	defer outFile.Close()
-	return config.Save(outFile, buildConfig)
+	return config.SaveBuildConfigToFile(outFile, buildConfig)
 }
 
 // Execute implements subcommands.Command.Execute. It initializes persistent state for a new

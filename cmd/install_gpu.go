@@ -198,7 +198,7 @@ func (i *InstallGPU) updateBuildConfig(configPath string) error {
 	if _, err := configFile.Seek(0, 0); err != nil {
 		return err
 	}
-	return config.Save(configFile, buildConfig)
+	return config.SaveBuildConfigToFile(configFile, buildConfig)
 }
 
 // Execute implements subcommands.Command.Execute. It configures the current image build process to

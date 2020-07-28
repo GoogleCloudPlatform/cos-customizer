@@ -1,0 +1,50 @@
+{
+  "Name": "run-test",
+  "Vars": {
+    "image_name": { "Required": true, "Description": "Name of image to test" },
+    "image_project": { "Required": true, "Description": "Project of image to test" },
+    "test_cfg": { "Required": true, "Description": "Cloud-config to use for the test" },
+    "vm_workflow": { "Value": "./vm.wf.json", "Description": "Workflow to use for creating the test VM" }
+  },
+  "Steps": {
+    "setup-disk": {
+      "CreateDisks": [
+        {
+          "Name": "boot-disk",
+          "SourceImage": "projects/${image_project}/global/images/${image_name}"
+        }
+      ]
+    },
+    "delete-image": {
+      "DeleteResources": {
+        "Images": ["projects/${image_project}/global/images/${image_name}"]
+      }
+    },
+    "create-vm": {
+      "IncludeWorkflow": {
+        "Path": "${vm_workflow}",
+        "Vars": {
+          "test_cfg": "${test_cfg}"
+        }
+      }
+    },
+    "wait": {
+      "WaitForInstancesSignal": [
+        {
+          "Name": "preload-test",
+          "SerialOutput": {
+            "Port": 2,
+            "SuccessMatch": "TestPass:",
+            "FailureMatch": "TestFail:",
+            "StatusMatch": "TestStatus:"
+          }
+        }
+      ]
+    }
+  },
+  "Dependencies": {
+    "create-vm": ["setup-disk"],
+    "delete-image": ["setup-disk"],
+    "wait": ["create-vm"]
+  }
+}

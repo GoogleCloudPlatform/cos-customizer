@@ -22,6 +22,7 @@ go_library(
         "install_gpu.go",
         "run_script.go",
         "start_image_build.go",
+        "seal_oem.go",
     ],
     importpath = "cos-customizer/cmd",
     visibility = ["//visibility:public"],
