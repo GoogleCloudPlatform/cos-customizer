@@ -207,3 +207,5 @@ func TestConvertSizeToGBRoundUpPasses(t *testing.T) {
 		})
 	}
 }
+
+// cannot test GetPartUUID() because test disk file "ori_disk" only has UUID, but not PARTUUID

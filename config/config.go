@@ -68,9 +68,24 @@ type Build struct {
 	DiskSize    int
 	OEMSize     string
 	OEMFSSize4K uint64
+	SealOEM     bool
 	GPUType     string
 	Timeout     string
 	GCSFiles    []string
+}
+
+// SaveBuildConfigToFile clears the build config file and then saves the new config.Build.
+func SaveBuildConfigToFile(configFile *os.File, buildConfig *Build) error {
+	if _, err := configFile.Seek(0, 0); err != nil {
+		return fmt.Errorf("cannot seek build config file, error msg:(%v)", err)
+	}
+	if err := configFile.Truncate(0); err != nil {
+		return fmt.Errorf("cannot truncate build config file, error msg:(%v)", err)
+	}
+	if err := Save(configFile, buildConfig); err != nil {
+		return fmt.Errorf("cannot save build config file, error msg:(%v)", err)
+	}
+	return nil
 }
 
 // Save serializes the given struct as JSON and writes it out.

@@ -16,14 +16,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["extend_oem_bin.go"],
-    importpath = "cos-customizer/tools/cmd/extend_oem/",
+    srcs = ["seal_oem_bin.go"],
+    importpath = "cos-customizer/tools/cmd/seal_oem/",
     visibility = ["//visibility:private"],
     deps = ["//tools:go_default_library"],
 )
 
 go_binary(
-    name = "extend_oem_bin",
+    name = "seal_oem_bin",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )

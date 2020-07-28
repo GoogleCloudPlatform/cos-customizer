@@ -1,0 +1,23 @@
+{
+  "Name": "vm",
+  "Vars": {
+    "test_cfg": { "Required": true, "Description": "Cloud-config to use for the test" }
+  },
+  "Sources": {
+    "cloud-config": "${test_cfg}"
+  },
+  "Steps": {
+    "create-vm": {
+      "CreateInstances": [
+        {
+          "Name": "preload-test",
+          "Disks": [{"Source": "boot-disk"}],
+          "Metadata": {
+            "user-data": "${SOURCE:cloud-config}",
+            "block-project-ssh-keys": "TRUE"
+          }
+        }
+      ]
+    }
+  }
+}

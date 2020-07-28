@@ -46,11 +46,7 @@ exit_workdir() {
 
 setup() {
   echo "Setting up the environment for preloading..."
-  if systemctl status update-engine; then
-    systemctl stop update-engine
-  else
-    echo "'systemctl status update-engine' failed; this is non-fatal"
-  fi
+  stop_service update-engine
   mount -t tmpfs tmpfs /root
   docker-credential-gcr configure-docker
   echo "Done setting up the environment for preloading"
@@ -175,7 +171,7 @@ After=tmp.mount
 Type=oneshot
 RemainAfterExit=true
 ExecStart=/bin/true
-ExecStop=/bin/bash -c '/tmp/extend-oem.bin /dev/sda 1 8 ${oem_size}|sed "s/^/BuildStatus: /"'
+ExecStop=/bin/bash -c '/tmp/extend_oem.bin /dev/sda 1 8 ${oem_size}|sed "s/^/BuildStatus: /"'
 TimeoutStopSec=600
 StandardOutput=tty
 StandardError=tty
@@ -186,7 +182,7 @@ EOF
 extend_oem_partition(){
   echo "Checking whether need to extend OEM partition..."
 
-  # get user input from meatadata
+  # get user input from metadata
   local -r oem_size="$(/usr/share/google/get_metadata_value \
     attributes/OEMSize)"
   local -r oem_fs_size_4k="$(/usr/share/google/get_metadata_value \
@@ -200,16 +196,20 @@ extend_oem_partition(){
     echo "Resizing OEM partition file system..."
     umount /dev/sda8
     e2fsck -fp /dev/sda8
-    resize2fs /dev/sda8 "${oem_fs_size_4k}"
+    if [[ "${oem_fs_size_4k}" -eq "0" ]]; then
+      resize2fs /dev/sda8
+    else
+      resize2fs /dev/sda8 "${oem_fs_size_4k}"
+    fi
     systemctl start usr-share-oem.mount
     fdisk -l
     df -h
     echo "Successfully extended OEM partition."
   else
     touch "${OEM_CHECK_FILE}"
-    echo "Extending OEM partition..."
+    echo "Extending OEM partition to "${oem_size}"..."
     create_run_after_unmount_unit
-    mv builtin_ctx_dir/extend-oem.bin /tmp/extend-oem.bin
+    mv builtin_ctx_dir/extend_oem.bin /tmp/extend_oem.bin
     systemctl --no-block start last-run.service
     stop_journald_service
     echo "Rebooting..."

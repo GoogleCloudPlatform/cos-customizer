@@ -53,13 +53,54 @@ genrule(
 genrule(
     name = "copy_extend_oem_bin",
     srcs = ["//tools/cmd/extend_oem:extend_oem_bin"],
-    outs = ["extend-oem.bin"],
+    outs = ["extend_oem.bin"],
+    cmd = "cp $< $@",
+)
+
+
+genrule(
+    name = "copy_seal_oem_bin",
+    srcs = ["//tools/cmd/seal_oem:seal_oem_bin"],
+    outs = ["seal_oem.bin"],
+    cmd = "cp $< $@",
+)
+
+container_image(
+    name="veritysetup",
+    repository="veritysetup",
+    debs=[
+        packages["coreutils"],
+        packages["tar"],
+        packages["libacl1"],
+        packages["libattr1"],
+        packages["libc6"],
+        packages["libselinux1"],
+        packages["libpcre3"],
+        packages["cryptsetup-bin"],
+        packages["libcryptsetup4"],
+        packages["libpopt0"],
+        packages["libuuid1"],
+        packages["libdevmapper1.02.1"],
+        packages["libgcrypt20"],
+        packages["libargon2-0"],
+        packages["libjson-c3"],
+        packages["libudev1"],
+        packages["libpthread-stubs0-dev"],
+        packages["libm17n-0"],
+        packages["libgpg-error0"],
+    ],
+)
+
+genrule(
+    name = "veritysetup_img",
+    srcs = [":veritysetup.tar"],
+    outs = ["veritysetup.img"],
     cmd = "cp $< $@",
 )
 
 pkg_tar(
-    name = "remap_extend_oem_bin",
-    srcs = [":copy_extend_oem_bin"],
+    name = "remap_builtin_build_ctx",
+    srcs = [":copy_seal_oem_bin",":copy_extend_oem_bin",":veritysetup_img"],
     package_dir = "data/builtin_build_context/",
 )
 
@@ -81,7 +122,7 @@ container_image(
         ":workspace_dir",
         ":tmp_dir",
     ],
-    tars = [":remap_extend_oem_bin"],
+    tars = [":remap_builtin_build_ctx"],
 )
 
 go_image(
