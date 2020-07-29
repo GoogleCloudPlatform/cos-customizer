@@ -48,10 +48,12 @@ steps. The `start-image-build` step initializes local state for the image build,
 and the `finish-image-build` step performs the image building operation with
 Daisy.
 
-Example optional build steps are `run-script` and `install-gpu`. `run-script`
-allows users to customize an image by running a script, and `install-gpu` allows
+Example optional build steps are `run-script`, `install-gpu` and `seal-oem`. `run-script`
+allows users to customize an image by running a script. `install-gpu` allows
 users to install GPU drivers using the
-[COS GPU installer](https://github.com/GoogleCloudPlatform/cos-gpu-installer).
+[COS GPU installer](https://github.com/GoogleCloudPlatform/cos-gpu-installer). 
+`seal-oem` allows users to setup a verified read-only OEM partition. It will be 
+verified when the VM boots and when the data inside are accessed.
 
 ### Minimal example
 
@@ -218,6 +220,15 @@ flag take precedence over labels assigned with this flag.
 
 `-disk-size-gb`: The disk size in GB to use when creating the image.
 
+`-oem-size`: The size of the extended OEM partition with unit `G`,`M`,`K` or `B`. 
+If no unit is provided, it will be parsed as the number of sectors of 512 Bytes.
+Since the default size of the OEM partition in a COS image is assumed to be 16MB, 
+this value must be no smaller than 16MB, otherwise the build will fail. 
+If this flag is set, the disk size must be no smaller than the sum of the original 
+image size (assumed to be 10GB) and the OEM size: 
+`disk-size-gb >= 10GB + oem-size (rounded up to GB)` or the build will fail. 
+Example: `-oem-size=500M`
+
 `-timeout`: Timeout value of this step. Must be formatted according to Golang's
 time.Duration string format. Defaults to "1h0m0s". Keep in mind that this timeout
 value is different from the overall Cloud Build workflow timeout value, which is
@@ -310,6 +321,30 @@ An example `install-gpu` step looks like the following:
 Note that when using an image customized with `install-gpu`, the hosted docker
 container should be set to run in privileged mode so that it has access to the
 GPU device on the host machine.
+
+#### seal-oem
+
+The `seal-oem` build step utilizes `dm-verity` to verify the data in the OEM
+partition when the system boots and when data are accessed. 
+If the verification fails, the system will refuse to boot or panic. 
+This step takes no flags and needs to be run after any step 
+that makes changes to the OEM partition (/dev/sda8 or /usr/share/oem).
+
+If this step is run, the size of the OEM partition will be doubled to store
+the hash tree for verification in the second half of the partition. So the 
+disk size must be no smaller than the sum of the original image size 
+(assumed to be 10GB) and the doubled OEM size: 
+`disk-size-gb >= 10GB + (oem-size x 2) (rounded up to GB)`. If the `-oem-size`
+in `finish-image-build` step is not set, the filesystem size of the OEM partition
+will be assumed to be the same as the default size, 16MB, and the disk size must
+be at least 11GB. If the disk size is smaller than needed, the build will fail.
+
+After running this build step, the OEM partition will not be automatically
+mounted when the system boots. `sudo mount /dev/dm-1 /usr/share/oem` should be 
+added to `startup script` or `cloud init` to mount the OEM partition.
+
+Note that this feature is supported by COS versions starting from 73. And 
+the auto-update engine must be disabled if this feature is applied.
 
 # Contributor Docs
 
