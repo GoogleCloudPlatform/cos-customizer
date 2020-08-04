@@ -74,6 +74,7 @@ func ExtendPartition(disk string, partNumInt int, end uint64) error {
 	writeTableCmd := exec.Command("sudo", "sfdisk", "--no-reread", disk)
 	writeTableCmd.Stdin = &tableBuffer
 	writeTableCmd.Stdout = os.Stdout
+	writeTableCmd.Stderr = os.Stderr
 	if err := writeTableCmd.Run(); err != nil {
 		return fmt.Errorf("error in writing partition table back to %q, "+
 			"input: disk=%q, partNumInt=%d, end sector=%d, "+
@@ -85,6 +86,7 @@ func ExtendPartition(disk string, partNumInt int, end uint64) error {
 	// check and repair file system in the partition.
 	cmd := exec.Command("sudo", "e2fsck", "-fp", partName)
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error in checking file system of %q, "+
 			"input: disk=%q, partNumInt=%d, end sector=%d, "+
@@ -95,6 +97,7 @@ func ExtendPartition(disk string, partNumInt int, end uint64) error {
 	// resize file system in the partition.
 	cmd = exec.Command("sudo", "resize2fs", partName)
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error in resizing file system of %q, "+
 			"input: disk=%q, partNumInt=%d, end sector=%d, "+

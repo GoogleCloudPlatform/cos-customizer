@@ -65,6 +65,13 @@ genrule(
     cmd = "cp $< $@",
 )
 
+genrule(
+    name = "copy_disable_systemd_service_bin",
+    srcs = ["//tools/cmd/disable_systemd_service:disable_systemd_service_bin"],
+    outs = ["disable_systemd_service.bin"],
+    cmd = "cp $< $@",
+)
+
 container_image(
     name="veritysetup",
     repository="veritysetup",
@@ -100,7 +107,7 @@ genrule(
 
 pkg_tar(
     name = "remap_builtin_build_ctx",
-    srcs = [":copy_seal_oem_bin",":copy_extend_oem_bin",":veritysetup_img"],
+    srcs = [":copy_seal_oem_bin",":copy_extend_oem_bin",":copy_disable_systemd_service_bin",":veritysetup_img"],
     package_dir = "data/builtin_build_context/",
 )
 

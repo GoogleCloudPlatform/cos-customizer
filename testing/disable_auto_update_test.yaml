@@ -1,0 +1,46 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the License);
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an AS IS BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+substitutions:
+  "_TEST": "disable_auto_update_test"
+  "_INPUT_IMAGE": "cos-81-12871-148-0"
+  "_INPUT_PROJECT": "cos-cloud"
+steps:
+- name: 'gcr.io/cloud-builders/bazel'
+  args: ["run", "--spawn_strategy=standalone", ":cos_customizer", "--", "--norun"]
+- name: 'bazel:cos_customizer'
+  args: ["start-image-build",
+         "-build-context=testing/${_TEST}",
+         "-image-name=${_INPUT_IMAGE}",
+         "-image-project=${_INPUT_PROJECT}",
+         "-gcs-bucket=${PROJECT_ID}_cloudbuild",
+         "-gcs-workdir=customizer-$BUILD_ID"]
+- name: 'bazel:cos_customizer'
+  args: ["run-script",
+         "-script=preload.sh"]
+- name: 'bazel:cos_customizer'
+  args: ["disable-auto-update"]        
+- name: 'bazel:cos_customizer'
+  args: ["finish-image-build",
+         "-zone=us-west1-b",
+         "-project=$PROJECT_ID",
+         "-image-name=preload-test-$BUILD_ID",
+         "-image-project=$PROJECT_ID"]
+- name: 'gcr.io/compute-image-tools/daisy'
+  args: ["-default_timeout=15m", "-project=$PROJECT_ID", "-zone=us-west1-b", "-var:image_name",
+         "preload-test-$BUILD_ID", "-var:image_project", "$PROJECT_ID",
+         "-var:test_cfg", "../${_TEST}/preload_test.cfg", "testing/util/run_test.wf.json"]
+options:
+  machineType: 'N1_HIGHCPU_32'
+timeout: "7200s"

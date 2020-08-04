@@ -21,6 +21,7 @@ go_library(
         "handle_partition_table.go",
         "helpers.go",
         "move_partition.go",
+        "grub_utils.go",
     ],
     importpath = "cos-customizer/tools/partutil",
     visibility = ["//visibility:public"],
