@@ -46,11 +46,12 @@ func SealOEMPartition(oemFSSize4K uint64) error {
 		return fmt.Errorf("cannot run veritysetup, input:oemFSSize4K=%d, "+
 			"error msg:(%v)", oemFSSize4K, err)
 	}
-	grubPath, err := mountEFIPartition()
+	grubPath, err := partutil.MountEFIPartition()
 	log.Println("EFI partition mounted.")
 	if err != nil {
 		return fmt.Errorf("cannot mount EFI partition (/dev/sda12), error msg:(%v)", err)
 	}
+	defer partutil.UnmountEFIPartition()
 	partUUID, err := partutil.GetPartUUID("/dev/sda8")
 	if err != nil {
 		return fmt.Errorf("cannot read partUUID of /dev/sda8")
@@ -79,6 +80,7 @@ func loadVeritysetupImage(imgPath string) (string, error) {
 	var idBuf bytes.Buffer
 	cmd = exec.Command("sudo", "docker", "images", "veritysetup:veritysetup", "-q")
 	cmd.Stdout = &idBuf
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("error in reading image ID, "+
 			"cmd:%q,std output:%s, error msg: (%v)",
@@ -96,28 +98,12 @@ func loadVeritysetupImage(imgPath string) (string, error) {
 func removeVeritysetupImage(imageID string) error {
 	cmd := exec.Command("sudo", "docker", "rmi", imageID)
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error in removing docker image, "+
 			"id=%q, error msg: (%v)", imageID, err)
 	}
 	return nil
-}
-
-// mountEFIPartition mounts the EFI partition (/dev/sda12)
-// and returns the directory path of grub.cfg.
-func mountEFIPartition() (string, error) {
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return "", fmt.Errorf("error in creating tempDir "+
-			"error msg: (%v)", err)
-	}
-	cmd := exec.Command("sudo", "mount", "/dev/sda12", dir)
-	cmd.Stdout = os.Stdout
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error in mounting /dev/sda12 at %q, "+
-			"error msg: (%v)", dir, err)
-	}
-	return dir + "/efi/boot", nil
 }
 
 // unmountOEMPartition checks whether the OEM partititon (/dev/sda8)
@@ -126,6 +112,7 @@ func unmountOEMPartition() error {
 	var buf bytes.Buffer
 	cmd := exec.Command("df")
 	cmd.Stdout = &buf
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error in running df, "+
 			"std output:%s, error msg: (%v)", buf.String(), err)
@@ -153,6 +140,7 @@ func veritysetup(imageID string, oemFSSize4K uint64) (string, string, error) {
 		"--no-superblock", "--format=0")
 	var verityBuf bytes.Buffer
 	cmd.Stdout = &verityBuf
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return "", "", fmt.Errorf("error in running docker veritysetup, "+
 			"input: oemFSSize4K=%d, std output:%s,error msg: (%v)",
@@ -191,7 +179,6 @@ func veritysetup(imageID string, oemFSSize4K uint64) (string, string, error) {
 // hashtree=PARTUUID=8AC60384-1187-9E49-91CE-3ABD8DA295A7 hashstart=4077568 alg=sha256
 // root_hexdigest=xxxxxxxx salt=xxxxxxxx"
 func appendDMEntryToGRUB(grubPath, name, partUUID, hash, salt string, oemFSSize4K uint64) error {
-	grubPath = grubPath + "/grub.cfg"
 	// from 4K blocks to 512B sectors
 	oemFSSizeSector := oemFSSize4K << 3
 	entryString := fmt.Sprintf("%s none ro 1, 0 %d verity payload=PARTUUID=%s hashtree=PARTUUID=%s "+
@@ -225,5 +212,4 @@ func appendDMEntryToGRUB(grubPath, name, partUUID, hash, salt string, oemFSSize4
 			"error msg:(%v)", grubPath, grubPath, name, partUUID, oemFSSize4K, hash, salt, err)
 	}
 	return nil
-
 }

@@ -23,6 +23,7 @@ go_library(
         "run_script.go",
         "start_image_build.go",
         "seal_oem.go",
+        "disable_auto_update.go",
     ],
     importpath = "cos-customizer/cmd",
     visibility = ["//visibility:public"],

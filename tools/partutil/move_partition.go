@@ -35,6 +35,7 @@ func MovePartition(disk string, partNumInt int, dest string) error {
 	cmd := exec.Command("sudo", "sfdisk", "--no-reread", "--move-data=/dev/null", disk, "-N", strconv.Itoa(partNumInt))
 	cmd.Stdin = &destBuffer
 	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("error in executing sfdisk --move-data, "+
 			"input: disk=%q, partNumInt=%d, dest=%q, "+

@@ -26,8 +26,6 @@ import (
 // Finally resize the OEM partition to 1 sector before the new stateful partition
 // OEMSize can be the number of sectors (without unit) or size like "3G", "100M", "10000K" or "99999B"
 func ExtendOEMPartition(disk string, statePartNum, oemPartNum int, oemSize string) error {
-	const SECTOR = 512
-
 	if len(disk) <= 0 || statePartNum <= 0 || oemPartNum <= 0 || len(oemSize) <= 0 {
 		return fmt.Errorf("empty or non-positive input: disk=%q, statePartNum=%d, oemPartNum=%d, oemSize=%q",
 			disk, statePartNum, oemPartNum, oemSize)
@@ -48,7 +46,7 @@ func ExtendOEMPartition(disk string, statePartNum, oemPartNum int, oemSize strin
 			"input: disk=%q, statePartNum=%d, oemPartNum=%d, oemSize=%q, "+
 			"error msg: (%v)", disk, statePartNum, oemPartNum, oemSize, err)
 	}
-	oldOEMSizeBytes := oldOEMSize * SECTOR // change unit to bytes.
+	oldOEMSizeBytes := oldOEMSize << 9 // change unit to bytes.
 
 	if newOEMSizeBytes <= oldOEMSizeBytes {
 		log.Printf("\n!!!!!!!WARNING!!!!!!!\n"+

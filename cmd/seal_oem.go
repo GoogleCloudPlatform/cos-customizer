@@ -50,8 +50,9 @@ func (s *SealOEM) Usage() string {
 // SetFlags implements subcommands.Command.SetFlags.
 func (s *SealOEM) SetFlags(f *flag.FlagSet) {}
 
-// Execute implements subcommands.Command.Execute. It configures the current image build process to
-// customize the result image with a shell script.
+// Execute implements subcommands.Command.Execute. It modifies the kernel command line
+// to enable dm-verity check on /dev/sda8 and disables update-engine (auto-update) and
+// usr-share-oem-mount systemd services.
 func (s *SealOEM) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	if f.NArg() != 0 {
 		f.Usage()
@@ -74,6 +75,14 @@ func (s *SealOEM) Execute(_ context.Context, f *flag.FlagSet, args ...interface{
 		return subcommands.ExitFailure
 	}
 	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "seal_oem.sh", ""); err != nil {
+		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
+		return subcommands.ExitFailure
+	}
+	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_auto_update.sh", ""); err != nil {
+		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
+		return subcommands.ExitFailure
+	}
+	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_oem_mount.sh", ""); err != nil {
 		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
 		return subcommands.ExitFailure
 	}

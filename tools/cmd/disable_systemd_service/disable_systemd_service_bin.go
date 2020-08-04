@@ -18,26 +18,17 @@ import (
 	"cos-customizer/tools"
 	"log"
 	"os"
-	"strconv"
 )
 
-// main generates binary file to extend the OEM partition.
+// main generates binary file to disable a systemd service.
 // Built by Bazel. The binary will be in data/builtin_build_context/.
 func main() {
 	log.SetOutput(os.Stdout)
 	args := os.Args
-	if len(args) != 5 {
-		log.Fatalln("error: must have 4 arguments: disk string, statePartNum, oemPartNum int, oemSize string")
+	if len(args) != 2 {
+		log.Fatalln("error: must have 1 argument: service string")
 	}
-	statePartNum, err := strconv.Atoi(args[2])
-	if err != nil {
-		log.Fatalln("error: the 2nd argument statePartNum must be an int")
-	}
-	oemPartNum, err := strconv.Atoi(args[3])
-	if err != nil {
-		log.Fatalln("error: the 3rd argument oemPartNum must be an int")
-	}
-	if err := tools.ExtendOEMPartition(args[1], statePartNum, oemPartNum, args[4]); err != nil {
+	if err := tools.DisableSystemdService(args[1]); err != nil {
 		log.Fatalln(err)
 	}
 }

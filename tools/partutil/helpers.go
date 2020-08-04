@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -108,6 +109,7 @@ func GetPartUUID(partName string) (string, error) {
 	var idBuf bytes.Buffer
 	cmd := exec.Command("sudo", "blkid")
 	cmd.Stdout = &idBuf
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("error in running blkid, "+
 			"std output:%s, error msg: (%v)", idBuf.String(), err)

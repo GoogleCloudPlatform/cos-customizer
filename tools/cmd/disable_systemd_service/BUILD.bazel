@@ -1,4 +1,4 @@
-# Copyright 2018 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the License);
 # you may not use this file except in compliance with the License.
@@ -12,25 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["extend_oem_partition.go",
-            "seal_oem_partition.go",
-            "disable_systemd_service.go"],
-    importpath = "cos-customizer/tools",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//tools/partutil:go_default_library",
-    ],
+    srcs = ["disable_systemd_service_bin.go"],
+    importpath = "cos-customizer/tools/cmd/disable_systemd_service/",
+    visibility = ["//visibility:private"],
+    deps = ["//tools:go_default_library"],
 )
 
-go_test(
-    name = "go_default_test",
-    srcs = ["extend_oem_partition_test.go"],
+go_binary(
+    name = "disable_systemd_service_bin",
     embed = [":go_default_library"],
-    deps = [
-        "//tools/partutil/partutiltest:go_default_library",
-    ],
+    visibility = ["//visibility:public"],
 )

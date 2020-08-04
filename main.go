@@ -66,6 +66,7 @@ func main() {
 	subcommands.Register(new(cmd.RunScript), "")
 	subcommands.Register(new(cmd.InstallGPU), "")
 	subcommands.Register(new(cmd.SealOEM), "")
+	subcommands.Register(new(cmd.DisableAutoUpdate), "")
 	subcommands.Register(new(cmd.FinishImageBuild), "")
 	flag.Parse()
 	ctx := context.Background()
