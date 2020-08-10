@@ -30,11 +30,12 @@ import (
 // Device     Start   End Sectors  Size Type
 // ori_disk1    434   633     200  100K Linux filesystem
 // ori_disk2    234   433     200  100K Linux filesystem
-// ori_disk8     34   233     200  100K Linux filesystemskk
+// ori_disk8     34   233     200  100K Linux filesystem
+// ori_disk12  1100  1106       7  3.5K Linux filesystem
 
 // Partition table entries are not in disk order.
 
-func TestParsePartitionTableFails(t *testing.T) {
+func TestHandlePartitionTableFails(t *testing.T) {
 
 	testData := struct {
 		testName string
@@ -47,12 +48,12 @@ func TestParsePartitionTableFails(t *testing.T) {
 		partName: "sda1",
 	}
 
-	if _, err := ParsePartitionTable(testData.table, testData.partName, false, func(p *PartContent) {}); err == nil {
+	if _, err := HandlePartitionTable(testData.table, testData.partName, false, func(p *PartContent) {}); err == nil {
 		t.Fatalf("error not found in %s", testData.testName)
 	}
 }
 
-func TestParsePartitionTablePasses(t *testing.T) {
+func TestHandlePartitionTablePasses(t *testing.T) {
 
 	testData := struct {
 		testName string
@@ -71,7 +72,7 @@ func TestParsePartitionTablePasses(t *testing.T) {
 		want:     "/dev/sdb11 : start=     4401152, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=3B41256B-E064-544A-9101-D2647C0B3A38\n/dev/sdb1 : start=5001, size=4096, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=9479C34A-49A6-9442-A56F-956396DFAC20\n",
 	}
 
-	res, err := ParsePartitionTable(testData.table, testData.partName, true, func(p *PartContent) {
+	res, err := HandlePartitionTable(testData.table, testData.partName, true, func(p *PartContent) {
 		p.Start = testData.start
 		p.Size = testData.size
 	})
@@ -216,5 +217,93 @@ func TestReadPartitionStartPasses(t *testing.T) {
 	}
 	if start != input.want {
 		t.Fatalf("wrong result in test %s, start: %d, expected: %d", input.testName, start, input.want)
+	}
+}
+
+func TestMinimizePartitionFails(t *testing.T) {
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_minimize_partition_fails", "", t, &testNames)
+
+	diskName := testNames.DiskName
+	testData := []struct {
+		testName string
+		disk     string
+		partNum  int
+	}{{
+		testName: "InvalidDisk",
+		disk:     "./testdata/no_disk",
+		partNum:  1,
+	}, {
+		testName: "InvalidPartition",
+		disk:     diskName,
+		partNum:  0,
+	}, {
+		testName: "NonexistPartition",
+		disk:     diskName,
+		partNum:  100,
+	}, {
+		testName: "EmptyDiskName",
+		disk:     "",
+		partNum:  100,
+	},
+	}
+
+	for _, input := range testData {
+		t.Run(input.testName, func(t *testing.T) {
+			if _, err := MinimizePartition(input.disk, input.partNum); err == nil {
+				t.Fatalf("error not found in test %s", input.testName)
+			}
+		})
+	}
+}
+
+func TestMinimizePartitionPasses(t *testing.T) {
+	var testNames partutiltest.TestNames
+	t.Cleanup(func() { partutiltest.TearDown(&testNames) })
+	partutiltest.SetupFakeDisk("tmp_disk_minimize_partition_fails", "", t, &testNames)
+
+	diskName := testNames.DiskName
+	testData := []struct {
+		testName string
+		disk     string
+		partNum  int
+		want     uint64
+		wantSize uint64
+	}{
+		{
+			testName: "200KPart",
+			disk:     diskName,
+			partNum:  8,
+			want:     42,
+			wantSize: 8,
+		}, {
+			testName: "SmallPart",
+			disk:     diskName,
+			partNum:  12,
+			want:     1108,
+			wantSize: 7,
+		},
+	}
+
+	for _, input := range testData {
+		t.Run(input.testName, func(t *testing.T) {
+			res, err := MinimizePartition(input.disk, input.partNum)
+			if err != nil {
+				t.Fatalf("error in test %s, error msg: (%v)", input.testName, err)
+			}
+			if res != input.want {
+				t.Fatalf("wrong result in %q, res: %q, expected: %q", input.testName, res, input.want)
+			}
+
+			size, err := ReadPartitionSize(input.disk, input.partNum)
+			if err != nil {
+				t.Fatalf("error in test %s, cannot read partition size, error msg: (%v)", input.testName, err)
+			}
+			if size != input.wantSize {
+				t.Fatalf("wrong result in %q, size: %q, expected size: %q", input.testName, size, input.wantSize)
+			}
+
+		})
 	}
 }

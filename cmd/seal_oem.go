@@ -70,6 +70,7 @@ func (s *SealOEM) Execute(_ context.Context, f *flag.FlagSet, args ...interface{
 		return subcommands.ExitUsageError
 	}
 	buildConfig.SealOEM = true
+	buildConfig.ReclaimSDA3 = true
 	if err := config.SaveBuildConfigToFile(configFile, buildConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure

@@ -19,12 +19,14 @@ steps:
   args:
   - '-c'
   - |
-    test_list=("gcloud builds submit --config=testing/seal_oem_test/seal_oem_test.yaml\
-                  --substitutions=_OEM_SIZE=50M,_DISK_SIZE=10,_OEM_SIZE_TH=40 --async --format='value(ID)' ." 
-               "gcloud builds submit --config=testing/seal_oem_test/seal_oem_test.yaml\
-                  --substitutions=_OEM_SIZE=1G,_DISK_SIZE=12,_OEM_SIZE_TH=900 --async --format='value(ID)' ."   
-               "gcloud builds submit --config=testing/seal_oem_test/seal_oem_test.yaml\
-                  --substitutions=_OEM_SIZE=2G,_DISK_SIZE=14,_OEM_SIZE_TH=1700 --async --format='value(ID)' ." )
+    test_list=("gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=390.46 --async --format='value(ID)' ." 
+               "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=396.26 --async --format='value(ID)' ."   
+               "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=396.37 --async --format='value(ID)' ." 
+               "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=396.44 --async --format='value(ID)' ." )
     build_ids=()
     exit_code=0
     for test in "${test_list[@]}"; do

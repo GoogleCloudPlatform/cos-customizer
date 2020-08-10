@@ -13,7 +13,7 @@
 # limitations under the License.
 
 substitutions:
-  "_TEST": "disable_auto_update_test"
+  "_TEST": "seal_oem_test"
   "_INPUT_IMAGE": "cos-81-12871-148-0"
   "_INPUT_PROJECT": "cos-cloud"
 steps:
@@ -30,7 +30,7 @@ steps:
   args: ["run-script",
          "-script=preload.sh"]
 - name: 'bazel:cos_customizer'
-  args: ["disable-auto-update"]        
+  args: ["seal-oem"]        
 - name: 'bazel:cos_customizer'
   args: ["finish-image-build",
          "-zone=us-west1-b",
@@ -38,7 +38,7 @@ steps:
          "-image-name=preload-test-$BUILD_ID",
          "-image-project=$PROJECT_ID"]
 - name: 'gcr.io/compute-image-tools/daisy'
-  args: ["-project=$PROJECT_ID", "-zone=us-west1-b", "-var:image_name",
+  args: ["-default_timeout=15m", "-project=$PROJECT_ID", "-zone=us-west1-b", "-var:image_name",
          "preload-test-$BUILD_ID", "-var:image_project", "$PROJECT_ID",
          "-var:test_cfg", "../${_TEST}/preload_test.cfg", "testing/util/run_test.wf.json"]
 options:

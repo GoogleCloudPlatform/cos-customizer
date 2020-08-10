@@ -26,9 +26,10 @@ import (
 
 // A file in tools/partutil/testdata is used as the simulation of a disk.
 // When a test program starts, it will copy the file and work on it. Its size is 600K. It has three partitions as follows:
-// 1.partition 8, OEM partition, 100K
-// 2.partition 2, middle partition, 100K
-// 3.partition 1, stateful partition, 100K
+// 1. partition 8, OEM partition, 100K
+// 2. partition 2, middle partition, 100K
+// 3. partition 1, stateful partition, 100K
+// 4. partition 12, small partition, 3.5K
 
 func TestExtendPartitionFails(t *testing.T) {
 	var testNames partutiltest.TestNames

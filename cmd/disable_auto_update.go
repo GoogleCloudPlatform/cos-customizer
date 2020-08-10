@@ -16,10 +16,12 @@ package cmd
 
 import (
 	"context"
+	"cos-customizer/config"
 	"cos-customizer/fs"
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/google/subcommands"
 )
@@ -54,6 +56,21 @@ func (d *DisableAutoUpdate) Execute(_ context.Context, f *flag.FlagSet, args ...
 		return subcommands.ExitUsageError
 	}
 	files := args[0].(*fs.Files)
+	configPath := files.BuildConfig
+	buildConfig := &config.Build{}
+	configFile, err := os.OpenFile(configPath, os.O_RDWR, 0666)
+	if err != nil {
+		return subcommands.ExitUsageError
+	}
+	defer configFile.Close()
+	if err := config.Load(configFile, buildConfig); err != nil {
+		return subcommands.ExitUsageError
+	}
+	buildConfig.ReclaimSDA3 = true
+	if err := config.SaveBuildConfigToFile(configFile, buildConfig); err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
 	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_auto_update.sh", ""); err != nil {
 		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
 		return subcommands.ExitFailure

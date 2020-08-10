@@ -164,7 +164,16 @@ func (f *FinishImageBuild) loadConfigs(files *fs.Files) (*config.Image, *config.
 func validateOEM(buildConfig *config.Build) error {
 	// The default size of a COS image (imgSize) is assumed to be 10GB.
 	const imgSize uint64 = 10
-	var sizeErrorMsg string
+	// If auto-update is disabled, 2046MB will be reclaimed.
+	// The size of sda3 is 2GB. We don't want to delete the partition,
+	// so we need to leave some space in the sda3. And `sfdisk --move-data`
+	// in some situations requires 1MB free space in the moving direction.
+	// Therefore, leaving 2MB after the start of sda3 is a safe choice.
+	// Also, this will make sure the start point of the next partition is
+	// 4K aligned.
+	const reclaimedMB uint64 = 2046
+	const reclaimedBytes uint64 = reclaimedMB << 20
+	var sizeError error
 	var oemSizeBytes uint64
 	var err error
 	if !buildConfig.SealOEM {
@@ -173,22 +182,24 @@ func validateOEM(buildConfig *config.Build) error {
 		}
 		// no need to seal the OEM partition.
 		// If the OEM partition is to be extended, the following must be true:
-		// disk-size >= imgSize + oem-size.
-		sizeErrorMsg = "'disk-size-gb' must be at least 'oem-size' + image size (%dGB)"
+		// disk-size >= imgSize + oem-size - reclaimed-size.
+		if buildConfig.ReclaimSDA3 {
+			sizeError = fmt.Errorf("'disk-size-gb' must be at least 'oem-size'- reclaimed space "+
+				"(%dMB) + image size (%dGB)", reclaimedMB, imgSize)
+		} else {
+			sizeError = fmt.Errorf("'disk-size-gb' must be at least 'oem-size' + image size (%dGB)", imgSize)
+		}
 		oemSizeBytes, err = partutil.ConvertSizeToBytes(buildConfig.OEMSize)
 		if err != nil {
 			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
 		}
 	} else {
+		// `seal-oem` will automatically disable auto-update and reclaim sda3.
 		if buildConfig.OEMSize == "" {
 			// If need to seal OEM partition and the oem-size is not set,
 			// assume the OEM fs size is 16M as it is in a COS image,
 			// and the OEM partition size is doubled to 32M.
-			// Disk size must be at least 11GB.
-			if buildConfig.DiskSize < 11 {
-				return fmt.Errorf("need extra disk space to seal the OEM partition, " +
-					"disk-size-gb should be at least 11")
-			}
+			// It will use space reclaimed from sda3.
 			buildConfig.OEMSize = "32M"
 			buildConfig.OEMFSSize4K = 4096
 			return nil
@@ -196,8 +207,10 @@ func validateOEM(buildConfig *config.Build) error {
 		// need extra space to seal the OEM partition.
 		// The OEM partition size should be doubled to store the
 		// hash tree of dm-verity. The following must be true:
-		// disk-size >= imgSize + oem-size x 2.
-		sizeErrorMsg = "'disk-size-gb' must be at least 'oem-size' x 2 + image size (%dGB)"
+		// disk-size >= imgSize + oem-size x 2 - reclaimed-size.
+		sizeError = fmt.Errorf("'disk-size-gb' must be at least 'oem-size' x 2 - reclaimed space "+
+			"(%dMB) + image size (%dGB)", reclaimedMB, imgSize)
+
 		oemSizeBytes, err = partutil.ConvertSizeToBytes(buildConfig.OEMSize)
 		if err != nil {
 			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
@@ -208,13 +221,27 @@ func validateOEM(buildConfig *config.Build) error {
 	}
 	// Since we allow user input like "500M", and the "resize-disk" API can only take GB as input,
 	// the oem-size is rounded up to GB to make sure there is enough space.
+	// If the auto-update is disabled, space in sda3 will be reclaimed and used.
 	// Extra space will be taken by the stateful partition.
-	oemSizeGB, err := partutil.ConvertSizeToGBRoundUp(strconv.FormatUint(oemSizeBytes, 10) + "B")
+	oemSizeReclaimBytes := oemSizeBytes
+	if buildConfig.ReclaimSDA3 {
+		if oemSizeReclaimBytes <= reclaimedBytes {
+			oemSizeReclaimBytes = 0
+		} else {
+			oemSizeReclaimBytes -= reclaimedBytes
+		}
+	}
+	oemSizeGB, err := partutil.ConvertSizeToGBRoundUp(strconv.FormatUint(oemSizeReclaimBytes, 10) + "B")
 	if err != nil {
 		return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
 	}
-	if (uint64)(buildConfig.DiskSize) < imgSize+oemSizeGB {
-		return fmt.Errorf(sizeErrorMsg, imgSize)
+	//  if no disk-size-gb input, assume the default image size to be 10GB.
+	var diskSize uint64 = imgSize
+	if buildConfig.DiskSize != 0 {
+		diskSize = (uint64)(buildConfig.DiskSize)
+	}
+	if diskSize < imgSize+oemSizeGB {
+		return sizeError
 	}
 	// Shrink OEM size input (rounded down) by 1MB to deal with cases
 	// where disk size is 1MB smaller than needed.

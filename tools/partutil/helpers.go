@@ -139,3 +139,10 @@ func GetPartUUID(partName string) (string, error) {
 	return "", fmt.Errorf("partition UUID not found, input: partName=%q ,"+
 		"output of \"blkid\": %s", partName, idBuf.String())
 }
+
+// FindLast4KSector returns the last 4K bytes aligned sector from start.
+// If input is a 4K aligned sector, return itself.
+func FindLast4KSector(start uint64) uint64 {
+	var mask uint64 = 7
+	return start & (^mask)
+}
