@@ -26,8 +26,8 @@ import (
 func main() {
 	log.SetOutput(os.Stdout)
 	args := os.Args
-	if len(args) != 5 {
-		log.Fatalln("error: must have 4 arguments: disk string, statePartNum, oemPartNum int, oemSize string")
+	if len(args) != 6 {
+		log.Fatalln("error: must have 5 arguments: disk string, statePartNum, oemPartNum int, oemSize string, reclaimSDA3 bool")
 	}
 	statePartNum, err := strconv.Atoi(args[2])
 	if err != nil {
@@ -37,7 +37,11 @@ func main() {
 	if err != nil {
 		log.Fatalln("error: the 3rd argument oemPartNum must be an int")
 	}
-	if err := tools.ExtendOEMPartition(args[1], statePartNum, oemPartNum, args[4]); err != nil {
+	reclaimSDA3, err := strconv.ParseBool(args[5])
+	if err != nil {
+		log.Fatalln("error: the 5th argument reclaimSDA3 must be a bool")
+	}
+	if err := tools.HandleDiskLayout(args[1], statePartNum, oemPartNum, args[4], reclaimSDA3); err != nil {
 		log.Fatalln(err)
 	}
 }

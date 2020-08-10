@@ -8,6 +8,7 @@
     "disk_size_gb": {"Value": "10", "Description": "The disk size to use for preloading."},
     "oem_size":{"Value":"","Description": "The size for extended OEM partition."},
     "oem_fs_size_4k":{"Value":"0","Description": "The filesystem size of extended OEM partition in unit of 4K sectors."},
+    "reclaim_sda3":{"Value":"false","Description": "Whether need to shrink and reclaim the space of /dev/sda3."},
     "host_maintenance": {"Value": "MIGRATE", "Description": "VM behavior when there is maintenance."},
     "user_build_context": {"Required": true, "Description": "GCS URL of the user build context."},
     "builtin_build_context": {"Required": true, "Description": "GCS URL of the builtin build context."},
@@ -49,6 +50,7 @@
             "DaisyAck": "${SCRATCHPATH}/daisy_ack",
             "OEMSize":  "${oem_size}",
             "OEMFSSize4K": "${oem_fs_size_4k}",
+            "ReclaimSDA3":"${reclaim_sda3}",
             "user-data": "${SOURCE:cloud-config}",
             "block-project-ssh-keys": "TRUE",
             "cos-update-strategy": "update_disabled"
@@ -60,14 +62,16 @@
         }
       ]
     },
-    "wait-preload-start": {
+    "wait-preload-prepare": {
       "WaitForInstancesSignal": [
         {
           "Name": "preload-vm",
           "Interval": "2s",
           "SerialOutput": {
             "Port": 3,
-            "SuccessMatch": "BuildStatus:"
+            "FailureMatch": "BuildFailed:",
+            "SuccessMatch": "Preparation done.",
+            "StatusMatch": "PrepareStatus:"
           }
         }
       ]
@@ -123,8 +127,8 @@
   },
   "Dependencies": {
     "run": ["setup"],
-    "wait-preload-start": ["run"],
-    "resize-disk":["wait-preload-start"],
+    "wait-preload-prepare": ["run"],
+    "resize-disk":["wait-preload-prepare"],
     "send-ack": ["resize-disk"],
     "wait-preload-finished": ["send-ack"],
     "wait-vm-shutdown": ["wait-preload-finished"],

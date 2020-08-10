@@ -15,7 +15,10 @@
 package partutil
 
 import (
+	"bytes"
 	"fmt"
+	"log"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -40,10 +43,10 @@ type PartContent struct {
 	Size  uint64
 }
 
-// ParsePartitionTable takes a partition table and get the start and size of the target partition.
+// HandlePartitionTable takes a partition table and get the start and size of the target partition.
 // If change==true, it will rebuild the partition table with data passed in by p *PartContent
 // and return the new table
-func ParsePartitionTable(table, partName string, change bool, f func(p *PartContent)) (string, error) {
+func HandlePartitionTable(table, partName string, change bool, f func(p *PartContent)) (string, error) {
 	foundPartition := false
 	lines := strings.Split(table, "\n")
 	for idx, line := range lines {
@@ -68,6 +71,7 @@ func ParsePartitionTable(table, partName string, change bool, f func(p *PartCont
 			return "", fmt.Errorf("cannot convert %q to int, "+
 				"partition info: %q, error msg: (%v)", strings.TrimSpace(startSec[1]), line, err)
 		}
+		// run reading or changing function on the PartContent struct.
 		f(&p)
 
 		// need to rebuild the partition table.
@@ -125,7 +129,7 @@ func ReadPartitionSize(disk string, partNumInt int) (uint64, error) {
 	}
 
 	var size uint64 = 0
-	if _, err = ParsePartitionTable(table, partName, false, func(p *PartContent) { size = p.Size }); err != nil {
+	if _, err = HandlePartitionTable(table, partName, false, func(p *PartContent) { size = p.Size }); err != nil {
 		return 0, fmt.Errorf("error parsing partition table of %q, "+
 			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, err)
@@ -156,10 +160,80 @@ func ReadPartitionStart(disk string, partNumInt int) (uint64, error) {
 	}
 
 	var start uint64 = 0
-	if _, err = ParsePartitionTable(table, partName, false, func(p *PartContent) { start = p.Start }); err != nil {
+	if _, err = HandlePartitionTable(table, partName, false, func(p *PartContent) { start = p.Start }); err != nil {
 		return 0, fmt.Errorf("error parsing partition table of %q, "+
 			"input: disk=%q, partNumInt=%d, "+
 			"error msg: (%v)", disk, disk, partNumInt, err)
 	}
 	return start, nil
+}
+
+// MinimizePartition minimizes the input partition and
+// returns the next sector of the end sector.
+// The smallest partition from fdisk is 1 sector partition.
+func MinimizePartition(disk string, partNumInt int) (uint64, error) {
+	// Make sure the next partition can start at a 4K aligned sector.
+	const minSize = 8 // 4K bytes
+	if len(disk) == 0 || partNumInt <= 0 {
+		return 0, fmt.Errorf("empty disk name or nonpositive part number, "+
+			"input: disk=%q, partNumInt=%d", disk, partNumInt)
+	}
+
+	// get partition number string
+	partNum, err := PartNumIntToString(disk, partNumInt)
+	if err != nil {
+		return 0, fmt.Errorf("error in converting partition number, "+
+			"input: disk=%q, partNumInt=%d, "+
+			"error msg: (%v)", disk, partNumInt, err)
+	}
+
+	partName := disk + partNum
+
+	var tableBuffer bytes.Buffer
+	var oldSize uint64
+
+	// dump partition table.
+	table, err := ReadPartitionTable(disk)
+	if err != nil {
+		return 0, fmt.Errorf("cannot read partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, "+
+			"error msg: (%v)", disk, disk, partNumInt, err)
+	}
+
+	var startSector uint64
+
+	// edit partition table.
+	table, err = HandlePartitionTable(table, partName, true, func(p *PartContent) {
+		startSector = p.Start
+		oldSize = p.Size
+		p.Size = minSize
+	})
+	if err != nil {
+		return 0, fmt.Errorf("error when editing partition table of %q, "+
+			"input: disk=%q, partNumInt=%d, "+
+			"error msg: (%v)", disk, disk, partNumInt, err)
+	}
+
+	if oldSize <= minSize {
+		log.Printf("warning: old partition size=%d is smaller than minSize=%d, "+
+			"nothing is done, "+
+			"return value is start sector + minSize (%d)", oldSize, minSize, minSize)
+		return startSector + minSize, nil
+	}
+
+	tableBuffer.WriteString(table)
+
+	// write partition table back.
+	writeTableCmd := exec.Command("sudo", "sfdisk", "--no-reread", disk)
+	writeTableCmd.Stdin = &tableBuffer
+	writeTableCmd.Stdout = os.Stdout
+	writeTableCmd.Stderr = os.Stderr
+	if err := writeTableCmd.Run(); err != nil {
+		return 0, fmt.Errorf("error in writing partition table back to %q, "+
+			"input: disk=%q, partNumInt=%d, "+
+			"error msg: (%v)", disk, disk, partNumInt, err)
+	}
+
+	log.Printf("\nCompleted minimizing %q\n\n", partName)
+	return startSector + minSize, nil
 }

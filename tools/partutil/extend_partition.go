@@ -52,7 +52,7 @@ func ExtendPartition(disk string, partNumInt int, end uint64) error {
 	var newSize uint64 = 0
 
 	// edit partition table.
-	table, err = ParsePartitionTable(table, partName, true, func(p *PartContent) {
+	table, err = HandlePartitionTable(table, partName, true, func(p *PartContent) {
 		oldSize = p.Size
 		newSize = end - p.Start + 1
 		p.Size = newSize
@@ -104,6 +104,6 @@ func ExtendPartition(disk string, partNumInt int, end uint64) error {
 			"error msg: (%v)", partName, disk, partNumInt, end, err)
 	}
 
-	log.Printf("\nCompleted updating file system of %s\n\n", partName)
+	log.Printf("\nCompleted updating file system of %q\n\n", partName)
 	return nil
 }

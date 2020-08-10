@@ -51,9 +51,9 @@ genrule(
 )
 
 genrule(
-    name = "copy_extend_oem_bin",
-    srcs = ["//tools/cmd/extend_oem:extend_oem_bin"],
-    outs = ["extend_oem.bin"],
+    name = "copy_handle_disk_layout_bin",
+    srcs = ["//tools/cmd/handle_disk_layout:handle_disk_layout_bin"],
+    outs = ["handle_disk_layout.bin"],
     cmd = "cp $< $@",
 )
 
@@ -107,7 +107,7 @@ genrule(
 
 pkg_tar(
     name = "remap_builtin_build_ctx",
-    srcs = [":copy_seal_oem_bin",":copy_extend_oem_bin",":copy_disable_systemd_service_bin",":veritysetup_img"],
+    srcs = [":copy_seal_oem_bin",":copy_handle_disk_layout_bin",":copy_disable_systemd_service_bin",":veritysetup_img"],
     package_dir = "data/builtin_build_context/",
 )
 

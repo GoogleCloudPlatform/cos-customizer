@@ -74,6 +74,10 @@ func TestConvertSizeToBytesPasses(t *testing.T) {
 			testName: "ValidInputG",
 			input:    "321G",
 			want:     344671125504,
+		}, {
+			testName: "Zero",
+			input:    "0",
+			want:     0,
 		},
 	}
 
@@ -201,6 +205,41 @@ func TestConvertSizeToGBRoundUpPasses(t *testing.T) {
 			if err != nil {
 				t.Fatalf("errorin test %s, error msg: (%v)", input.testName, err)
 			}
+			if res != input.want {
+				t.Fatalf("wrong result: %q to %d, expect: %d", input.input, res, input.want)
+			}
+		})
+	}
+}
+
+func TestFindLast4KSectorPasses(t *testing.T) {
+	testData := []struct {
+		testName string
+		input    uint64
+		want     uint64
+	}{
+		{
+			testName: "ToZero",
+			input:    7,
+			want:     0,
+		}, {
+			testName: "SmallNum",
+			input:    14,
+			want:     8,
+		}, {
+			testName: "LargeNum",
+			input:    987654316,
+			want:     987654312,
+		}, {
+			testName: "Self",
+			input:    256,
+			want:     256,
+		},
+	}
+
+	for _, input := range testData {
+		t.Run(input.testName, func(t *testing.T) {
+			res := FindLast4KSector(input.input)
 			if res != input.want {
 				t.Fatalf("wrong result: %q to %d, expect: %d", input.input, res, input.want)
 			}

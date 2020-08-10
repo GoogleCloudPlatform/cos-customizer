@@ -184,7 +184,7 @@ func TestValidateFailure(t *testing.T) {
 			msg:       "'timeout' value should be invalid",
 		}, {
 			name:      "SmallDiskSize",
-			flags:     []string{"-project=p", "-zone=z", "-image-name=out", "-image-project=p", "-image-family=f", "-disk-size-gb=12", "-oem-size=1025M"},
+			flags:     []string{"-project=p", "-zone=z", "-image-name=out", "-image-project=p", "-image-family=f", "-disk-size-gb=11", "-oem-size=3072M"},
 			expectErr: true,
 			msg:       "disk size should be invalid",
 		},

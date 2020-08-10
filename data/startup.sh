@@ -23,11 +23,38 @@ set -o nounset
 
 
 PYTHON_IMG="python:2.7.15-alpine"
-OEM_CHECK_FILE="/mnt/stateful_partition/oem"
+SDA3_CHECK_FILE="/mnt/stateful_partition/sda3_check"
+LAYOUT_CHECK_FILE="/mnt/stateful_partition/layout_check"
+INPUT_DEV_NAME="persistent-disk-0"
 
 fatal() {
   echo -e "BuildFailed: ${*}"
   exit 1
+}
+
+switch_root(){
+  # Get ReclaimSDA3 input from metadata.
+  # If needed, switch root partition to /dev/sda5 (rootB)
+  local -r reclaim="$(/usr/share/google/get_metadata_value \
+    attributes/ReclaimSDA3)"
+  echo "Checking the need to switch root partition..."
+  if [[ "${reclaim}" == false ]] || [[ "$( sudo rootdev -s | grep sda5)" ]]; then
+    echo "Done switching root partition."
+    return
+  fi
+  echo "Copying sda3 to sda5..."
+  dd if="/dev/sda3" of="/dev/sda5" bs=4M
+  echo "sda3 copied to sda5."
+  sudo cgpt prioritize -P 5 -i 4 /dev/sda
+  # overwrite trap to avoid build failure triggered by reboot.
+  trap - EXIT
+  echo "Rebooting..."
+  reboot
+  # keep it inside of this function until reboot kills the process
+  while :
+    do
+      sleep 1
+    done
 }
 
 enter_workdir() {
@@ -156,9 +183,11 @@ EOF
 # this unit runs at shutdown time after everything but /tmp is unmounted
 create_run_after_unmount_unit(){
   mount -o remount,exec /tmp
-  # get OEMSize user input from metadata
+  # get user input from metadata
   local -r oem_size="$(/usr/share/google/get_metadata_value \
     attributes/OEMSize)"
+  local -r reclaim="$(/usr/share/google/get_metadata_value \
+    attributes/ReclaimSDA3)"
   cat > /etc/systemd/system/last-run.service<<EOF
 [Unit]
 Description=Run after everything unmounted
@@ -171,7 +200,7 @@ After=tmp.mount
 Type=oneshot
 RemainAfterExit=true
 ExecStart=/bin/true
-ExecStop=/bin/bash -c '/tmp/extend_oem.bin /dev/sda 1 8 ${oem_size}|sed "s/^/BuildStatus: /"'
+ExecStop=/bin/bash -c '/tmp/handle_disk_layout.bin /dev/sda 1 8 "${oem_size}" "${reclaim}" |sed "s/^/BuildStatus: /"'
 TimeoutStopSec=600
 StandardOutput=tty
 StandardError=tty
@@ -179,50 +208,22 @@ TTYPath=/dev/ttyS2
 EOF
 }
 
-extend_oem_partition(){
-  echo "Checking whether need to extend OEM partition..."
-
-  # get user input from metadata
-  local -r oem_size="$(/usr/share/google/get_metadata_value \
-    attributes/OEMSize)"
-  local -r oem_fs_size_4k="$(/usr/share/google/get_metadata_value \
-    attributes/OEMFSSize4K)"
-
-  if [[ -z "${oem_size}" ]]; then 
-    echo "No request to change OEM partition."
-    return
-  fi
-  if [[ -e "${OEM_CHECK_FILE}" ]]; then
-    echo "Resizing OEM partition file system..."
-    umount /dev/sda8
-    e2fsck -fp /dev/sda8
-    if [[ "${oem_fs_size_4k}" -eq "0" ]]; then
-      resize2fs /dev/sda8
-    else
-      resize2fs /dev/sda8 "${oem_fs_size_4k}"
-    fi
-    systemctl start usr-share-oem.mount
-    fdisk -l
-    df -h
-    echo "Successfully extended OEM partition."
-  else
-    touch "${OEM_CHECK_FILE}"
-    echo "Extending OEM partition to "${oem_size}"..."
-    create_run_after_unmount_unit
-    mv builtin_ctx_dir/extend_oem.bin /tmp/extend_oem.bin
-    systemctl --no-block start last-run.service
-    stop_journald_service
-    echo "Rebooting..."
-    
-    # overwrite trap to avoid build failure triggered by reboot.
-    trap - EXIT
-    reboot
-    # keep it inside of this function until reboot kills the process
-    while :
-      do
-        sleep 1
-      done
-  fi  
+handle_disk_layout(){
+  echo "Modifying disk layout..."
+  create_run_after_unmount_unit
+  cp builtin_ctx_dir/handle_disk_layout.bin /tmp/handle_disk_layout.bin
+  systemctl --no-block start last-run.service
+  stop_journald_service
+  echo "Rebooting..."
+  
+  # overwrite trap to avoid build failure triggered by reboot.
+  trap - EXIT
+  reboot
+  # keep it inside of this function until reboot kills the process
+  while :
+    do
+      sleep 1
+    done
 }
 
 fetch_state_file() {
@@ -329,19 +330,83 @@ cleanup() {
   rm -rf /var/lib/systemd/*
   rm -rf /var/lib/update_engine/*
   rm -rf /var/lib/whitelist/*
-  rm -f OEM_CHECK_FILE
+  rm -f "${SDA3_CHECK_FILE}"
+  rm -f "${LAYOUT_CHECK_FILE}"
   echo "Done cleaning up instance state."
 }
 
-main() {
+shrink_sda3(){
+  # get user input from metadata
+  local -r reclaim="$(/usr/share/google/get_metadata_value \
+    attributes/ReclaimSDA3)"
+
+  echo "Checking whether need to shrink sda3..."
+  # have shrinked sda3 or no need to shrink sda3
+  if [[ -e "${SDA3_CHECK_FILE}" || "${reclaim}" == false ]]; then
+    echo "Completed dealing with sda3."
+    return
+  fi
+  echo "Shrinking sda3..."
+  touch "${SDA3_CHECK_FILE}"
+  handle_disk_layout
+}
+
+move_partitions(){
+  # get user input from metadata
+  local -r oem_size="$(/usr/share/google/get_metadata_value \
+    attributes/OEMSize)"
+  local -r oem_fs_size_4k="$(/usr/share/google/get_metadata_value \
+    attributes/OEMFSSize4K)"
+  local -r reclaim="$(/usr/share/google/get_metadata_value \
+    attributes/ReclaimSDA3)"
+
+  echo "Checking whether need to change disk layout..."
+  if [[ -z "${oem_size}" ]] && [[ "${reclaim}" == false ]]; then 
+    echo "No request to change disk layout."
+    return
+  fi
+  # have changed disk layout.
+  if [[ -e "${LAYOUT_CHECK_FILE}" ]]; then
+    # oem extended, need to resize the file system.
+    if [[ -n "${oem_size}" ]]; then
+      echo "Resizing OEM partition file system..."
+      umount /dev/sda8
+      e2fsck -fp /dev/sda8
+      if [[ "${oem_fs_size_4k}" -eq "0" ]]; then
+        resize2fs /dev/sda8
+      else
+        resize2fs /dev/sda8 "${oem_fs_size_4k}"
+      fi
+      systemctl start usr-share-oem.mount
+    fi
+    fdisk -l
+    df -h
+    echo "Successfully modified disk layout."
+  else
+    touch "${LAYOUT_CHECK_FILE}"
+    handle_disk_layout
+  fi
+}
+
+# prepare runs before Daisy step `resize-disk`
+prepare() {
   trap 'fatal exiting due to errors' EXIT
+  switch_root
   enter_workdir
   setup
+  fetch_builtin_ctx
+  shrink_sda3
+  echo "Preparation done."
+}
+
+# build runs after Daisy step `resize-disk`
+build() {
+  trap 'fatal exiting due to errors' EXIT
+  enter_workdir
   wait_daisy_logging
   echo "Downloading source artifacts from GCS..."
+  move_partitions
   fetch_user_ctx
-  fetch_builtin_ctx
-  extend_oem_partition
   fetch_state_file
   docker rmi "${PYTHON_IMG}" || :
   echo "Successfully downloaded source artifacts from GCS."
@@ -352,7 +417,8 @@ main() {
   cleanup
 }
 
-main 2>&1 | sed "s/^/BuildStatus: /"
+prepare 2>&1 | sed "s/^/PrepareStatus: /"
+build 2>&1 | sed "s/^/BuildStatus: /"
 trap - EXIT
 echo "BuildSucceeded: Build completed with no errors. Shutting down..."
 # We tell Daisy to check for serial logs every 2 seconds (see

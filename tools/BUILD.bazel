@@ -16,7 +16,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["extend_oem_partition.go",
+    srcs = ["handle_disk_layout.go",
             "seal_oem_partition.go",
             "disable_systemd_service.go"],
     importpath = "cos-customizer/tools",
@@ -28,7 +28,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["extend_oem_partition_test.go"],
+    srcs = ["handle_disk_layout_test.go"],
     embed = [":go_default_library"],
     deps = [
         "//tools/partutil/partutiltest:go_default_library",
