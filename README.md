@@ -23,6 +23,8 @@ supported.
     *   [Optional build steps](#optional-build-steps)
         *   [run-script](#run-script)
         *   [install-gpu](#install-gpu)
+        *   [seal-oem](#seal-oem)
+        *   [disable-auto-update](#disable-auto-update)
 
 ## Accessing the cos-customizer container image
 
@@ -49,13 +51,14 @@ and the `finish-image-build` step performs the image building operation with
 Daisy.
 
 Example optional build steps are `run-script`, `install-gpu`, `seal-oem` and
-`disable-auto-update`.
-`run-script`allows users to customize an image by running a script.
+`disable-auto-update`.  
+`run-script`allows users to customize an image by running a script.  
 `install-gpu` allows users to install GPU drivers using the
-[COS GPU installer](https://github.com/GoogleCloudPlatform/cos-gpu-installer). 
+[COS GPU installer](https://github.com/GoogleCloudPlatform/cos-gpu-installer).  
 `seal-oem` allows users to setup a verified read-only OEM partition. It will be 
-verified when the VM boots and when the data inside are accessed.
-`disable-auto-update` allows users to disable the auto-update engine.
+verified when the VM boots and when the data inside are accessed.  
+`disable-auto-update` allows users to disable the auto-update service. And it
+will reclaim the disk space of the unused root partition.
 
 ### Minimal example
 
@@ -221,15 +224,32 @@ image labels present on the source image. The labels specified by the `-labels`
 flag take precedence over labels assigned with this flag.
 
 `-disk-size-gb`: The disk size in GB to use when creating the image.
+This value should never be smaller than 10 (the default size of a COS image).
+If `-oem-size` is set,  the lower limit of `-disk-size-gb` is as shown in the 
+following table. The larger one of the value in the table and 10 is 
+effective. See section `-oem-size`,
+[seal-oem](#seal-oem) and [disable-auto-update](#disable-auto-update) for details.
 
-`-oem-size`: The size of the extended OEM partition with unit `G`,`M`,`K` or `B`. 
+| disk-size-gb-lower-limit |        no seal-oem       |           seal-oem           |
+|:------------------------:|:------------------------:|:----------------------------:|
+|  no disable-auto-update  |      10GB + oem-size     | 10GB + oem-size x 2 - 2046MB |
+|    disable-auto-update   | 10GB + oem-size - 2046MB | 10GB + oem-size x 2 - 2046MB | 
+
+Note that if `seal-oem` is run without specifying `-oem-size`, the lower limit of
+`-disk-size-gb` will be 10.
+
+`-oem-size`: The file system size of the extended OEM partition with unit 
+`G`,`M`,`K` or `B`. 
 If no unit is provided, it will be parsed as the number of sectors of 512 Bytes.
 Since the default size of the OEM partition in a COS image is assumed to be 16MB, 
 this value must be no smaller than 16MB, otherwise the build will fail. 
-If this flag is set, the disk size must be no smaller than the sum of the original 
-image size (assumed to be 10GB) and the OEM size: 
-`disk-size-gb >= 10GB + oem-size (rounded up to GB)` or the build will fail. 
+Make sure the disk size is large enough if this flag is used to extend the OEM partition.
+If the `seal-oem` or `disable-auto-update` is run, the OEM partition will firstly
+use the reclaimed space.
+See section `-disk-size-gb` for the limits of the disk size value.
 Example: `-oem-size=500M`
+
+Note that this feature is supported by COS versions higher than milestone 73 (included).
 
 `-timeout`: Timeout value of this step. Must be formatted according to Golang's
 time.Duration string format. Defaults to "1h0m0s". Keep in mind that this timeout
@@ -328,32 +348,39 @@ GPU device on the host machine.
 
 The `seal-oem` build step utilizes `dm-verity` to verify the data in the OEM
 partition when the system boots and when data are accessed. 
-If the verification fails, the system will refuse to boot or panic. 
+If the verification fails, the system will refuse to boot or will panic. 
 This step takes no flags and needs to be run after any step 
-that makes changes to the OEM partition (/dev/sda8 or /usr/share/oem).
+that makes changes to the OEM partition (`/dev/sda8` or `/usr/share/oem`).
 
 If this step is run, the size of the OEM partition will be doubled to store
-the hash tree for verification in the second half of the partition. So the 
-disk size must be no smaller than the sum of the original image size 
-(assumed to be 10GB) and the doubled OEM size: 
-`disk-size-gb >= 10GB + (oem-size x 2) (rounded up to GB)`. If the `-oem-size`
-in `finish-image-build` step is not set, the filesystem size of the OEM partition
-will be assumed to be the same as the default size, 16MB, and the disk size must
-be at least 11GB. If the disk size is smaller than needed, the build will fail.
+the hash tree for verification in the second half of the partition.
+If `-oem-size` in `finish-image-build` step is not set, the file system 
+size of the OEM partition will be assumed to be the same as the default size, 
+16MB. And the size of the OEM partition will be doubled to 32MB.
+
+The auto-update service is automatically disabled in this step. So it is not 
+necessary to run the `disable-auto-update` step explicitly. This will reclaim
+the unused space and the OEM partition will firstly use the reclaimed space.
+See section `-disk-size-gb` for the limits of the disk size value. If the 
+disk size is not large enough, the build will fail.
 
 After running this build step, the OEM partition will not be automatically
-mounted when the system boots. `sudo mount /dev/dm-1 /usr/share/oem` should be 
-added to `startup script` or `cloud init` to mount the OEM partition.
+mounted when the system boots.   
+`sudo mount /dev/dm-1 /usr/share/oem` should be  added to 
+`startup script` or `cloud init` to mount the OEM partition.
 
-The auto-update engine is automatically disabled in this step. So it is not 
-necessary to run the `disable-auto-update` step explicitly.
-
-Note that this feature is supported by COS versions higher than 73 (included).
+Note that this feature is supported by COS versions higher than milestone 73 (included).
 
 #### disable-auto-update
 
-The `disable-auto-update` step modifies the kernel commandline to disable
-the auto-update engine. This step takes no flags.
+The `disable-auto-update` build step modifies the kernel commandline to disable
+the auto-update serive. This step takes no flags.
+
+The root partition that is used by auto-update service will not be needed anymore,
+so the disk space (2046MB) of that partition will be reclaimed. The reclaimed
+space will be used by the OEM partition if extended and the stateful partition.
+
+Note that this feature is supported by COS versions higher than milestone 73 (included).
 
 # Contributor Docs
 
