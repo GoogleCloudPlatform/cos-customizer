@@ -14,7 +14,7 @@
 
 steps:
 - name: 'gcr.io/cloud-builders/bazel'
-  args: ['test', '--spawn_strategy=standalone', '...']
+  args: ['test', '--spawn_strategy=standalone','--','...','-tools/...']
 - name: 'gcr.io/cloud-builders/bazel'
   args: ['run', '--spawn_strategy=standalone', ':cos_customizer', '--', '--norun']
 - name: 'gcr.io/cloud-builders/docker'
