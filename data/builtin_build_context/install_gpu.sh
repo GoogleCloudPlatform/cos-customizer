@@ -60,14 +60,14 @@ main() {
   mount --bind "${NVIDIA_INSTALL_DIR_HOST}" "${NVIDIA_INSTALL_DIR_HOST}"
   mount -o remount,exec "${NVIDIA_INSTALL_DIR_HOST}"
   pull_installer
-  docker run \
+  docker_run_cmd="docker run \
     --rm \
     --privileged \
     --net=host \
     --pid=host \
-    --volume "${NVIDIA_INSTALL_DIR_HOST}":"${NVIDIA_INSTALL_DIR_CONTAINER}" \
+    --volume ${NVIDIA_INSTALL_DIR_HOST}:${NVIDIA_INSTALL_DIR_CONTAINER} \
     --volume /dev:/dev \
-    --volume "/":"${ROOT_MOUNT_DIR}" \
+    --volume /:${ROOT_MOUNT_DIR} \
     -e NVIDIA_DRIVER_VERSION \
     -e NVIDIA_DRIVER_MD5SUM \
     -e NVIDIA_INSTALL_DIR_HOST \
@@ -75,7 +75,15 @@ main() {
     -e NVIDIA_INSTALL_DIR_CONTAINER \
     -e ROOT_MOUNT_DIR \
     -e COS_DOWNLOAD_GCS \
-    "${COS_NVIDIA_INSTALLER_CONTAINER}"
+    ${COS_NVIDIA_INSTALLER_CONTAINER}"
+  if ! ${docker_run_cmd}; then
+    echo "GPU install failed."
+    if [[ -f /var/lib/nvidia/nvidia-installer.log ]]; then
+      echo "Nvidia installer debug logs:"
+      cat /var/lib/nvidia/nvidia-installer.log
+    fi
+    return 1
+  fi
   ${NVIDIA_INSTALL_DIR_HOST}/bin/nvidia-smi
 
   # Start nvidia-persistenced
