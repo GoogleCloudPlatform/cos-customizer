@@ -60,7 +60,7 @@ main() {
   mount --bind "${NVIDIA_INSTALL_DIR_HOST}" "${NVIDIA_INSTALL_DIR_HOST}"
   mount -o remount,exec "${NVIDIA_INSTALL_DIR_HOST}"
   pull_installer
-  docker run \
+  if ! docker run \
     --rm \
     --privileged \
     --net=host \
@@ -75,7 +75,11 @@ main() {
     -e NVIDIA_INSTALL_DIR_CONTAINER \
     -e ROOT_MOUNT_DIR \
     -e COS_DOWNLOAD_GCS \
-    "${COS_NVIDIA_INSTALLER_CONTAINER}"
+    "${COS_NVIDIA_INSTALLER_CONTAINER}"; then
+    echo "GPU install failed. Nvidia installer debug logs:"
+    cat /var/lib/nvidia/nvidia-installer.log
+    return 1
+  fi
   ${NVIDIA_INSTALL_DIR_HOST}/bin/nvidia-smi
 
   # Start nvidia-persistenced
