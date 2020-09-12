@@ -14,7 +14,7 @@
 
 substitutions:
   "_TEST": "gpu_test"
-  "_INPUT_IMAGE": "cos-dev-69-10895-0-0"
+  "_INPUT_IMAGE": "cos-69-10895-71-0"
   "_INPUT_PROJECT": "cos-cloud"
   "_DRIVER_VERSION": ""
   "_DEPS_DIR": ""
