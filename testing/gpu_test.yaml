@@ -26,7 +26,19 @@ steps:
                "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
                   --substitutions=_DRIVER_VERSION=396.37 --async --format='value(ID)' ." 
                "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
-                  --substitutions=_DRIVER_VERSION=396.44 --async --format='value(ID)' ." )
+                  --substitutions=_DRIVER_VERSION=396.44 --async --format='value(ID)' ."
+               "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=418.67,_INPUT_IMAGE=cos-73-11647-656-0\
+                  --async --format='value(ID)' ."
+               "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=418.67,_INPUT_IMAGE=cos-77-12371-1079-0\
+                  --async --format='value(ID)' ."
+               "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=450.51.06,_INPUT_IMAGE=cos-81-12871-1196-0\
+                  --async --format='value(ID)' ."
+               "gcloud builds submit --config=testing/gpu_test/gpu_test.yaml\
+                  --substitutions=_DRIVER_VERSION=450.51.06,_INPUT_IMAGE=cos-rc-85-13310-1040-0\
+                  --async --format='value(ID)' .")
     build_ids=()
     exit_code=0
     for test in "${test_list[@]}"; do
