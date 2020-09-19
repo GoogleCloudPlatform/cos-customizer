@@ -35,6 +35,18 @@ set_cos_download_gcs() {
   fi
 }
 
+set_gpu_installer_download_url() {
+  if [[ ! "${NVIDIA_DRIVER_VERSION}" == *.run ]]; then
+    return
+  fi
+  if [[ -n "${COS_DOWNLOAD_GCS}" ]]; then
+    export GPU_INSTALLER_DOWNLOAD_URL=\
+"${COS_DOWNLOAD_GCS}/${NVIDIA_DRIVER_VERSION}"
+  fi
+  # NVIDIA-Linux-x86_64-450.51.06.run -> 450.51.06
+  NVIDIA_DRIVER_VERSION="$(echo "${NVIDIA_DRIVER_VERSION%.run}" | cut -d '-' -f 4)"
+}
+
 pull_installer() {
   local docker_code
   local i=1
@@ -56,6 +68,7 @@ main() {
   if [[ -n "${SET_COS_DOWNLOAD_GCS}" ]]; then
     set_cos_download_gcs
   fi
+  set_gpu_installer_download_url
   mkdir -p "${NVIDIA_INSTALL_DIR_HOST}"
   mount --bind "${NVIDIA_INSTALL_DIR_HOST}" "${NVIDIA_INSTALL_DIR_HOST}"
   mount -o remount,exec "${NVIDIA_INSTALL_DIR_HOST}"
@@ -67,7 +80,7 @@ main() {
     --pid=host \
     --volume "${NVIDIA_INSTALL_DIR_HOST}":"${NVIDIA_INSTALL_DIR_CONTAINER}" \
     --volume /dev:/dev \
-    --volume "/":"${ROOT_MOUNT_DIR}" \
+    --volume "/:${ROOT_MOUNT_DIR}" \
     -e NVIDIA_DRIVER_VERSION \
     -e NVIDIA_DRIVER_MD5SUM \
     -e NVIDIA_INSTALL_DIR_HOST \
@@ -75,6 +88,7 @@ main() {
     -e NVIDIA_INSTALL_DIR_CONTAINER \
     -e ROOT_MOUNT_DIR \
     -e COS_DOWNLOAD_GCS \
+    -e GPU_INSTALLER_DOWNLOAD_URL \
     "${COS_NVIDIA_INSTALLER_CONTAINER}"; then
     echo "GPU install failed. Nvidia installer debug logs:"
     cat /var/lib/nvidia/nvidia-installer.log

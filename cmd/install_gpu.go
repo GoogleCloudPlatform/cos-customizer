@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -72,7 +73,8 @@ func (*InstallGPU) Usage() string {
 
 // SetFlags implements subcommands.Command.SetFlags.
 func (i *InstallGPU) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&i.NvidiaDriverVersion, "version", "", "Driver version to install.")
+	f.StringVar(&i.NvidiaDriverVersion, "version", "", "Driver version to install. Can also be the name of an nvidia installer present in the "+
+		"directory specified by '-deps-dir'; e.g., NVIDIA-Linux-x86_64-450.51.06.run.")
 	f.StringVar(&i.NvidiaDriverMd5sum, "md5sum", "", "Md5sum of the driver to install.")
 	f.StringVar(&i.NvidiaInstallDirHost, "install-dir", "/var/lib/nvidia",
 		"Location to install drivers on the image.")
@@ -131,16 +133,31 @@ func (i *InstallGPU) validate(ctx context.Context, gcsClient *storage.Client, fi
 	if gpuAlreadyConf {
 		return fmt.Errorf("install-gpu can only be invoked once in an image build process. Only one driver version can be installed on the image")
 	}
-	validDrivers, err := validDriverVersions(ctx, gcsClient)
-	if err != nil {
-		return err
-	}
-	if !validDrivers[i.NvidiaDriverVersion] {
-		var drivers []string
-		for d := range validDrivers {
-			drivers = append(drivers, d)
+	if strings.HasSuffix(i.NvidiaDriverVersion, ".run") {
+		log.Println("driver version is set to %q, which looks like an nvidia installer file", i.NvidiaDriverVersion)
+		if i.gpuDataDir == "" {
+			return errors.New(`"-deps-dir" must be set when the version is specified as an nvidia installer file`)
 		}
-		return fmt.Errorf("driver version %s is not valid; valid driver versions are: %v", i.NvidiaDriverVersion, drivers)
+		fileName := filepath.Join(i.gpuDataDir, i.NvidiaDriverVersion)
+		info, err := os.Stat(fileName)
+		if os.IsNotExist(err) {
+			return fmt.Errorf("nvidia installer file at %q does not exist", fileName)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("nvidia installer file at %q is a directory", fileName)
+		}
+	} else {
+		validDrivers, err := validDriverVersions(ctx, gcsClient)
+		if err != nil {
+			return err
+		}
+		if !validDrivers[i.NvidiaDriverVersion] {
+			var drivers []string
+			for d := range validDrivers {
+				drivers = append(drivers, d)
+			}
+			return fmt.Errorf("driver version %s is not valid; valid driver versions are: %v", i.NvidiaDriverVersion, drivers)
+		}
 	}
 	return nil
 }

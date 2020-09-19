@@ -18,6 +18,8 @@ steps:
   args: ["-c", "mkdir deps_dir"]
 - name: 'gcr.io/cloud-builders/gsutil'
   args: ["-m", "cp", "-r", "gs://cos-tools/12998.0.0/*", "deps_dir"]
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ["-m", "cp", "gs://nvidia-drivers-us-public/tesla/418.67/NVIDIA-Linux-x86_64-418.67.run", "deps_dir"]
 - name: 'gcr.io/cloud-builders/gcloud'
   args: ["builds", "submit", "--config=testing/gpu_test/gpu_test.yaml",
          "--substitutions=_DRIVER_VERSION=418.67,_INPUT_IMAGE=cos-dev-83-12998-0-0,_DEPS_DIR=deps_dir",
