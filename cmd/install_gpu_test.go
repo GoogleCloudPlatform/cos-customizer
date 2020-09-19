@@ -281,3 +281,16 @@ func TestInstallGPUStateFile(t *testing.T) {
 		t.Errorf("install-gpu(_); state file; got %s, want %s", string(got), string(want))
 	}
 }
+
+func TestInstallGPUInstallerWithoutDepsDir(t *testing.T) {
+	tmpDir, files, err := setupInstallGPUFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	gcs := fakes.GCSForTest(t)
+	defer gcs.Close()
+	if _, err := executeInstallGPU(context.Background(), files, gcs.Client, "-version=NVIDIA-Linux-x86_64-450.51.06.run"); err == nil {
+		t.Error("install-gpu(-version=NVIDIA-Linux-x86_64-450.51.06.run); got nil, want error")
+	}
+}

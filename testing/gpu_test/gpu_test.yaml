@@ -21,9 +21,18 @@ substitutions:
 steps:
 - name: 'gcr.io/cloud-builders/bazel'
   args: ["run", "--spawn_strategy=standalone", ":cos_customizer", "--", "--norun"]
-- name: 'busybox'
-  args: ["sed", "-i", "-e", "s|%s|'${_DRIVER_VERSION}'|",
-         "testing/${_TEST}/preload_test.cfg"]
+- name: 'ubuntu'
+  args: 
+  - bash
+  - -c
+  - |
+    ver="${_DRIVER_VERSION}"
+    if [[ "${ver}" == *.run ]]; then
+      sub="$(echo "${ver%.run}" | cut -d '-' -f 4)"
+    else
+      sub="${ver}"
+    fi
+    sed -i -e "s|%s|'${sub}'|" testing/${_TEST}/preload_test.cfg
 - name: 'bazel:cos_customizer'
   args: ["start-image-build",
          "-build-context=testing/${_TEST}",
