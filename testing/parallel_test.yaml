@@ -16,7 +16,7 @@ substitutions:
   "_TEST_1": "smoke_test"
   "_INPUT_IMAGE_1": "cos-dev-69-10895-0-0"
   "_TEST_2": "gpu_test"
-  "_INPUT_IMAGE_2": "cos-dev-69-10895-27-0"
+  "_INPUT_IMAGE_2": "cos-69-10895-71-0"
   "_INPUT_PROJECT": "cos-cloud"
 steps:
 - name: 'gcr.io/cloud-builders/bazel'
