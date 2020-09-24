@@ -24,7 +24,7 @@ export NVIDIA_DRIVER_VERSION={{.NvidiaDriverVersion}}
 export NVIDIA_DRIVER_MD5SUM={{.NvidiaDriverMd5sum}}
 export NVIDIA_INSTALL_DIR_HOST={{.NvidiaInstallDirHost}}
 readonly SET_COS_DOWNLOAD_GCS={{.SetCOSDownloadGCS}}
-export COS_NVIDIA_INSTALLER_CONTAINER=gcr.io/cos-cloud/cos-gpu-installer:v20200403
+export COS_NVIDIA_INSTALLER_CONTAINER=gcr.io/cos-cloud/cos-gpu-installer:v20200921
 export NVIDIA_INSTALL_DIR_CONTAINER=/usr/local/nvidia
 export ROOT_MOUNT_DIR=/root
 
