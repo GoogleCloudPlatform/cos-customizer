@@ -68,9 +68,9 @@ func NewGCEServer(project string) *GCE {
 		project:    project,
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/%s/global/images", project), gce.imagesListHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/global/images/", project), gce.imageHandler)
-	mux.HandleFunc(fmt.Sprintf("/%s/global/operations/", project), gce.operationsHandler)
+	mux.HandleFunc(fmt.Sprintf("/projects/%s/global/images", project), gce.imagesListHandler)
+	mux.HandleFunc(fmt.Sprintf("/projects/%s/global/images/", project), gce.imageHandler)
+	mux.HandleFunc(fmt.Sprintf("/projects/%s/global/operations/", project), gce.operationsHandler)
 	gce.server = httptest.NewServer(mux)
 	return gce
 }
@@ -115,8 +115,9 @@ func (g *GCE) imagesListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *GCE) imageHandler(w http.ResponseWriter, r *http.Request) {
-	// Path starts with /<project>/global/images/<name>
+	// Path starts with /project/<project>/global/images/<name>
 	splitPath := strings.Split(r.URL.Path, "/")
+	splitPath = splitPath[1:]
 	switch {
 	case len(splitPath) == 5:
 		image := g.image(splitPath[4])

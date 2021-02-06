@@ -47,10 +47,10 @@ http_archive(
     urls = ["https://github.com/GoogleContainerTools/distroless/archive/fa0765cc86064801e42a3b35f50ff2242aca9998.tar.gz"],
 )
 
-http_archive(    
-    name = "rules_pkg",       
-    sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",    
-    urls = ["https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6-1/rules_pkg-0.2.6.tar.gz"],    
+http_archive(
+    name = "rules_pkg",
+    sha256 = "aeca78988341a2ee1ba097641056d168320ecc51372ef7ff8e64b139516a4937",
+    urls = ["https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6-1/rules_pkg-0.2.6.tar.gz"],
 )
 
 git_repository(
@@ -65,7 +65,6 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
 
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
-
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 
 go_rules_dependencies()
@@ -74,7 +73,7 @@ go_register_toolchains()
 
 rules_pkg_dependencies()
 
-load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 
 gazelle_dependencies()
 
@@ -82,12 +81,15 @@ load(
     "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
 )
+
 container_repositories()
 
 load("@io_bazel_rules_docker//repositories:deps.bzl", container_deps = "deps")
+
 container_deps()
 
 load("@io_bazel_rules_docker//repositories:pip_repositories.bzl", "pip_deps")
+
 pip_deps()
 
 load(
@@ -106,111 +108,14 @@ load(
     "@io_bazel_rules_docker//go:image.bzl",
     _go_image_repos = "repositories",
 )
+
 _go_image_repos()
-
-go_repository(
-    name = "com_github_google_subcommands",
-    importpath = "github.com/google/subcommands",
-    urls = ["https://github.com/google/subcommands/archive/5bae204cdfb2d92dcc333d56014bae6a2f6c58b1.tar.gz"],
-    strip_prefix = "subcommands-5bae204cdfb2d92dcc333d56014bae6a2f6c58b1",
-    sha256 = "459d1f29a8cb6be068196ead8fc485d54cb895afc257aacaa6d0cab49e3e1fe5",
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "com_google_cloud_go",
-    importpath = "cloud.google.com/go",
-    # Archives downloaded from gitiles aren't deterministic, so don't compare
-    # against a fixed sha256 (https://github.com/google/gitiles/issues/84)
-    urls = ["https://code.googlesource.com/gocloud/+archive/13a5d37070fcb4cc601a650c1bcb95885e3cc776.tar.gz"],
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "org_golang_google_grpc",
-    importpath = "google.golang.org/grpc",
-    urls = ["https://github.com/grpc/grpc-go/archive/v1.30.0.tar.gz"],
-    strip_prefix = "grpc-go-1.30.0",
-    sha256 = "add9d2c86ea2611a95957ae97c4369c3fc8b381d4c55ca5c0df9daaa220eda54",
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "org_golang_x_net",
-    importpath = "golang.org/x/net",
-    urls = ["https://github.com/golang/net/archive/ab34263943818b32f575efc978a3d24e80b04bd7.tar.gz"],
-    strip_prefix = "net-ab34263943818b32f575efc978a3d24e80b04bd7",
-    sha256 = "7f3c48e6aa4dfed3d52639e97d216b9393d31b4c5d6a2da7a898f025d9d41ac7",
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "org_golang_x_text",
-    importpath = "golang.org/x/text",
-    urls = ["https://github.com/golang/text/archive/23ae387dee1f90d29a23c0e87ee0b46038fbed0e.tar.gz"],
-    strip_prefix = "text-23ae387dee1f90d29a23c0e87ee0b46038fbed0e",
-    sha256 = "f4bd81a281c3cee2022c4825c4add086d0976563958de9d8bef86d412915ba1e",
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "org_golang_google_api",
-    importpath = "google.golang.org/api",
-    # Archives downloaded from gitiles aren't deterministic, so don't compare
-    # against a fixed sha256 (https://github.com/google/gitiles/issues/84)
-    urls = ["https://code.googlesource.com/google-api-go-client/+archive/cb1f45ca288bfafb52ab824361c939d908e525ad.tar.gz"],
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "org_golang_x_oauth2",
-    importpath = "golang.org/x/oauth2",
-    # Archives downloaded from gitiles aren't deterministic, so don't compare
-    # against a fixed sha256 (https://github.com/google/gitiles/issues/84)
-    urls = ["https://go.googlesource.com/oauth2/+archive/d2e6202438beef2727060aa7cabdd924d92ebfd9.tar.gz"],
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "in_gopkg_yaml_v2",
-    importpath = "gopkg.in/yaml.v2",
-    urls = ["https://github.com/go-yaml/yaml/archive/5420a8b6744d3b0345ab293f6fcba19c978f1183.tar.gz"],
-    strip_prefix = "yaml-5420a8b6744d3b0345ab293f6fcba19c978f1183",
-    sha256 = "f7427a3950b795ae9047c3661e67a7a213f1c1ae9b7efdc1759278473b8d436d",
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "com_github_googleapis_gax_go",
-    importpath = "github.com/googleapis/gax-go",
-    urls = ["https://github.com/googleapis/gax-go/archive/bd5b16380fd03dc758d11cef74ba2e3bc8b0e8c2.tar.gz"],
-    strip_prefix = "gax-go-bd5b16380fd03dc758d11cef74ba2e3bc8b0e8c2",
-    sha256 = "6ab51d8764dba1de8bde38a6784340500486052cbf225d41decf9de6230b403a",
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "io_opencensus_go",
-    importpath = "go.opencensus.io",
-    urls = ["https://github.com/census-instrumentation/opencensus-go/archive/7e6c39beca2921a62fe5f9e53773d750822a6d5c.tar.gz"],
-    strip_prefix = "opencensus-go-7e6c39beca2921a62fe5f9e53773d750822a6d5c",
-    sha256 = "a31bc593100a4eb8f7364e6fa5f359667acb0f90764430f13877bef84e54d2ee",
-    type = "tar.gz",
-)
-
-go_repository(
-    name = "com_github_google_go-cmp",
-    importpath = "github.com/google/go-cmp",
-    urls = ["https://github.com/google/go-cmp/archive/875f8df8b7965f1eac1098d36d677f807ac0b49e.tar.gz"],
-    strip_prefix = "go-cmp-875f8df8b7965f1eac1098d36d677f807ac0b49e",
-    sha256 = "ad74121b3d4d27be6a18818d1daeb5258991c01e4634ab322176f83e858701ec",
-    type = "tar.gz",
-)
 
 load(
     "@distroless//package_manager:package_manager.bzl",
     "package_manager_repositories",
 )
+
 package_manager_repositories()
 
 load(
@@ -255,3 +160,8 @@ dpkg_list(
         "@debian_stretch//file:Packages.json",
     ],
 )
+
+load("//:deps.bzl", "go_mod_deps")
+
+# gazelle:repository_macro deps.bzl%go_mod_deps
+go_mod_deps()
