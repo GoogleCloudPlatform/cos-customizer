@@ -12,31 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@package_bundle//file:packages.bzl", "packages")
 load("@rules_pkg//:pkg.bzl", "pkg_tar", "pkg_deb")
 
-# gazelle:prefix cos-customizer
+# gazelle:prefix github.com/GoogleCloudPlatform/cos-customizer
 gazelle(name = "gazelle")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["main.go"],
-    importpath = "cos-customizer",
-    visibility = ["//visibility:private"],
-    deps = [
-        "//cmd:go_default_library",
-        "//fs:go_default_library",
-        "@com_github_google_subcommands//:go_default_library",
-        "@com_google_cloud_go//storage:go_default_library",
-        "@org_golang_google_api//compute/v1:go_default_library",
-        "@org_golang_google_api//option:go_default_library",
-        "@org_golang_x_oauth2//google:go_default_library",
-    ],
-)
 
 genrule(
     name = "workspace_dir",
@@ -52,30 +35,29 @@ genrule(
 
 genrule(
     name = "copy_handle_disk_layout_bin",
-    srcs = ["//tools/cmd/handle_disk_layout:handle_disk_layout_bin"],
+    srcs = ["//src/cmd/handle_disk_layout:handle_disk_layout_bin"],
     outs = ["handle_disk_layout.bin"],
     cmd = "cp $< $@",
 )
 
-
 genrule(
     name = "copy_seal_oem_bin",
-    srcs = ["//tools/cmd/seal_oem:seal_oem_bin"],
+    srcs = ["//src/cmd/seal_oem:seal_oem_bin"],
     outs = ["seal_oem.bin"],
     cmd = "cp $< $@",
 )
 
 genrule(
     name = "copy_disable_systemd_service_bin",
-    srcs = ["//tools/cmd/disable_systemd_service:disable_systemd_service_bin"],
+    srcs = ["//src/cmd/disable_systemd_service:disable_systemd_service_bin"],
     outs = ["disable_systemd_service.bin"],
     cmd = "cp $< $@",
 )
 
 container_image(
-    name="veritysetup",
-    repository="veritysetup",
-    debs=[
+    name = "veritysetup",
+    repository = "veritysetup",
+    debs = [
         packages["coreutils"],
         packages["tar"],
         packages["libacl1"],
@@ -107,10 +89,20 @@ genrule(
 
 pkg_tar(
     name = "remap_builtin_build_ctx",
-    srcs = [":copy_seal_oem_bin",":copy_handle_disk_layout_bin",":copy_disable_systemd_service_bin",":veritysetup_img"],
+    srcs = [
+        ":copy_seal_oem_bin",
+        ":copy_handle_disk_layout_bin",
+        ":copy_disable_systemd_service_bin",
+        ":veritysetup_img",
+    ],
     package_dir = "data/builtin_build_context/",
 )
 
+pkg_tar(
+    name = "data_tar",
+    srcs = glob(["src/data/**"]),
+    strip_prefix = "src/",
+)
 
 container_image(
     name = "cos_customizer_base",
@@ -125,17 +117,20 @@ container_image(
         packages["libselinux1"],
         packages["libpcre3"],
     ],
-    files = glob(["data/**"]) + [
+    files = [
         ":workspace_dir",
         ":tmp_dir",
     ],
-    tars = [":remap_builtin_build_ctx"],
+    tars = [
+        ":remap_builtin_build_ctx",
+        ":data_tar",
+    ],
 )
 
 go_image(
     name = "cos_customizer",
     base = ":cos_customizer_base",
-    embed = [":go_default_library"],
+    embed = ["//src/cmd/cos_customizer"],
     goarch = "amd64",
     goos = "linux",
     pure = "on",
