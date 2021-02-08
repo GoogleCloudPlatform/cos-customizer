@@ -16,10 +16,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
+	"io/ioutil"
 	"log"
 
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 	"github.com/google/subcommands"
 )
 
@@ -61,6 +64,20 @@ func (r *Run) validate() error {
 func (r *Run) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	if err := r.validate(); err != nil {
 		log.Printf("Error in flags: %v", err)
+		return subcommands.ExitUsageError
+	}
+	data, err := ioutil.ReadFile(r.configPath)
+	if err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	var c provisioner.Config
+	if err := json.Unmarshal(data, &c); err != nil {
+		log.Printf("JSON parsing error in %q: %v", r.configPath, err)
+		return subcommands.ExitFailure
+	}
+	if err := provisioner.Run(*stateDir, c); err != nil {
+		log.Printf("Provisioning error: %v", err)
 		return subcommands.ExitFailure
 	}
 	return subcommands.ExitSuccess
