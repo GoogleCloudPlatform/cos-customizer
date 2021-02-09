@@ -15,6 +15,7 @@
 package provisioner
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 )
 
 func TestStateExists(t *testing.T) {
+	ctx := context.Background()
 	dir, err := ioutil.TempDir("", "provisioner-test-")
 	if err != nil {
 		t.Fatal(err)
@@ -30,8 +32,13 @@ func TestStateExists(t *testing.T) {
 	if err := ioutil.WriteFile(filepath.Join(dir, "state.json"), []byte("{}"), 0660); err != nil {
 		t.Fatal(err)
 	}
+	deps := Deps{
+		GCSClient:    nil,
+		TarCmd:       "",
+		SystemctlCmd: "",
+	}
 	config := Config{}
-	if err := Run(dir, config); err != errStateAlreadyExists {
-		t.Fatalf("Run(%s, %+v) = %v; want %v", dir, config, err, errStateAlreadyExists)
+	if err := Run(ctx, deps, dir, config); err != errStateAlreadyExists {
+		t.Fatalf("Run(ctx, %+v, %q, %+v) = %v; want %v", deps, dir, config, err, errStateAlreadyExists)
 	}
 }

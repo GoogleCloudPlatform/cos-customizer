@@ -15,12 +15,20 @@
 package provisioner
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
+
+	"cloud.google.com/go/storage"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 )
 
 var (
@@ -52,7 +60,58 @@ func (s *state) write() error {
 	return nil
 }
 
-func initState(dir string, c Config) (*state, error) {
+func downloadGCSObject(ctx context.Context, gcsClient *storage.Client, bucket, object, localPath string) error {
+	address := fmt.Sprintf("gs://%s/%s", bucket, object)
+	gcsObj, err := gcsClient.Bucket(bucket).Object(object).NewReader(ctx)
+	if err != nil {
+		return fmt.Errorf("error reading %q: %v", address, err)
+	}
+	defer utils.CheckClose(gcsObj, fmt.Sprintf("error closing GCS reader %q", address), &err)
+	localFile, err := os.Create(localPath)
+	if err != nil {
+		return err
+	}
+	defer utils.CheckClose(localFile, "", &err)
+	if _, err := io.Copy(localFile, gcsObj); err != nil {
+		return fmt.Errorf("error copying %q to %q: %v", address, localFile.Name(), err)
+	}
+	return nil
+}
+
+func (s *state) unpackBuildContexts(ctx context.Context, deps Deps) (err error) {
+	for name, address := range s.data.Config.BuildContexts {
+		log.Printf("Unpacking build context %q from %q", name, address)
+		if address[:len("gs://")] != "gs://" {
+			return fmt.Errorf("cannot use address %q, only gs:// addresses are supported", address)
+		}
+		splitAddr := strings.SplitN(address[len("gs://"):], "/", 2)
+		if len(splitAddr) != 2 || splitAddr[0] == "" || splitAddr[1] == "" {
+			return fmt.Errorf("address %q is malformed", address)
+		}
+		bucket, object := splitAddr[0], splitAddr[1]
+		tarPath := filepath.Join(s.dir, name+".tar")
+		if err := downloadGCSObject(ctx, deps.GCSClient, bucket, object, tarPath); err != nil {
+			return fmt.Errorf("error downloading %q to %q: %v", address, tarPath, err)
+		}
+		tarDir := filepath.Join(s.dir, name)
+		if err := os.Mkdir(tarDir, 0770); err != nil {
+			return err
+		}
+		args := []string{"xf", tarPath, "-C", tarDir}
+		cmd := exec.Command(deps.TarCmd, args...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf(`error in cmd "%s %v", see stderr for details: %v`, deps.TarCmd, args, err)
+		}
+		if err := os.Remove(tarPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func initState(ctx context.Context, deps Deps, dir string, c Config) (*state, error) {
 	s := &state{dir: dir, data: stateData{Config: c, CurrentStep: 0}}
 	if _, err := os.Stat(s.dataPath()); err == nil {
 		return nil, errStateAlreadyExists
@@ -62,6 +121,9 @@ func initState(dir string, c Config) (*state, error) {
 	}
 	if err := s.write(); err != nil {
 		return nil, err
+	}
+	if err := s.unpackBuildContexts(ctx, deps); err != nil {
+		return nil, fmt.Errorf("error unpacking build contexts: %v", err)
 	}
 	return s, nil
 }

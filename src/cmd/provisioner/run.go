@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 
+	"cloud.google.com/go/storage"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 	"github.com/google/subcommands"
 )
@@ -61,7 +62,7 @@ func (r *Run) validate() error {
 }
 
 // Execute implements subcommands.Command.Execute.
-func (r *Run) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+func (r *Run) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	if err := r.validate(); err != nil {
 		log.Printf("Error in flags: %v", err)
 		return subcommands.ExitUsageError
@@ -76,7 +77,18 @@ func (r *Run) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) s
 		log.Printf("JSON parsing error in %q: %v", r.configPath, err)
 		return subcommands.ExitFailure
 	}
-	if err := provisioner.Run(*stateDir, c); err != nil {
+	gcsClient, err := storage.NewClient(ctx)
+	if err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	deps := provisioner.Deps{
+		GCSClient:           gcsClient,
+		TarCmd:              "tar",
+		SystemctlCmd:        "systemctl",
+		DockerCredentialGCR: "docker-credential-gcr",
+	}
+	if err := provisioner.Run(ctx, deps, *stateDir, c); err != nil {
 		log.Printf("Provisioning error: %v", err)
 		return subcommands.ExitFailure
 	}
