@@ -19,9 +19,11 @@ package provisioner
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/sys/unix"
@@ -45,9 +47,82 @@ func setup(dockerCredentialGCR string, systemd *systemdClient) error {
 	return nil
 }
 
-func cleanup(stateDir string) error {
+func stopServices(systemd *systemdClient) error {
+	log.Println("Stopping services...")
+	for _, s := range []string{
+		"crash-reporter.service",
+		"crash-sender.service",
+		"device_policy_manager.service",
+		"metrics-daemon.service",
+		"update-engine.service",
+	} {
+		if err := systemd.stop(s); err != nil {
+			return err
+		}
+	}
+	log.Println("Done stopping services.")
+	return nil
+}
+
+func zeroAllFiles(dir string) error {
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("error accessing path %q: %v", path, err)
+		}
+		if info.IsDir() {
+			return nil
+		}
+		// Truncate the file
+		f, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func cleanupDir(dir string) error {
+	fileInfos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		} else {
+			return err
+		}
+	}
+	for _, fi := range fileInfos {
+		if err := os.RemoveAll(filepath.Join(dir, fi.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cleanup(rootDir, stateDir string) error {
 	log.Println("Cleaning up machine state...")
 	if err := os.RemoveAll(stateDir); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(filepath.Join(rootDir, "mnt", "stateful_partition", "etc")); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	for _, d := range []string{
+		filepath.Join(rootDir, "var", "cache"),
+		filepath.Join(rootDir, "var", "tmp"),
+		filepath.Join(rootDir, "var", "lib", "crash_reporter"),
+		filepath.Join(rootDir, "var", "lib", "metrics"),
+		filepath.Join(rootDir, "var", "lib", "systemd"),
+		filepath.Join(rootDir, "var", "lib", "update_engine"),
+		filepath.Join(rootDir, "var", "lib", "whitelist"),
+	} {
+		if err := cleanupDir(d); err != nil {
+			return err
+		}
+	}
+	if err := zeroAllFiles(filepath.Join(rootDir, "var", "log")); err != nil {
 		return err
 	}
 	log.Println("Done cleaning up machine state")
@@ -64,6 +139,9 @@ type Deps struct {
 	SystemctlCmd string
 	// DockerCredentialGCR is the path to the docker-credential-gcr binary.
 	DockerCredentialGCR string
+	// RootDir is the path to the root file system. Should be "/" in all real
+	// runtime situations.
+	RootDir string
 }
 
 // Run runs a full provisioning flow based on the provided config. The stateDir
@@ -79,7 +157,10 @@ func Run(ctx context.Context, deps Deps, stateDir string, c Config) (err error) 
 		return err
 	}
 	// TODO(rkolchmeyer): Implement the actual provisioning behavior
-	if err := cleanup(stateDir); err != nil {
+	if err := stopServices(systemd); err != nil {
+		return fmt.Errorf("error stopping services: %v", err)
+	}
+	if err := cleanup(deps.RootDir, stateDir); err != nil {
 		return fmt.Errorf("error in cleanup: %v", err)
 	}
 	log.Println("Done provisioning machine")
