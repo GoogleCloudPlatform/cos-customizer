@@ -87,6 +87,7 @@ func (r *Run) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{})
 		TarCmd:              "tar",
 		SystemctlCmd:        "systemctl",
 		DockerCredentialGCR: "docker-credential-gcr",
+		RootDir:             "/",
 	}
 	if err := provisioner.Run(ctx, deps, *stateDir, c); err != nil {
 		log.Printf("Provisioning error: %v", err)
