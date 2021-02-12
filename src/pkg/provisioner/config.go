@@ -58,7 +58,7 @@ type Config struct {
 	// - Value: The exact text to append to the kernel command line.
 	Steps []struct {
 		Type string
-		Args *json.RawMessage
+		Args json.RawMessage
 	}
 }
 
@@ -66,12 +66,12 @@ type step interface {
 	run(*state) error
 }
 
-func parseStep(stepType string, stepArgs *json.RawMessage) (step, error) {
+func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 	switch stepType {
 	case "RunScript":
 		var s step
 		s = &runScriptStep{}
-		if err := json.Unmarshal(*stepArgs, s); err != nil {
+		if err := json.Unmarshal(stepArgs, s); err != nil {
 			return nil, err
 		}
 		return s, nil

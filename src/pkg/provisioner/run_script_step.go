@@ -15,7 +15,9 @@
 package provisioner
 
 import (
+	"errors"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -28,11 +30,24 @@ type runScriptStep struct {
 	Env          string
 }
 
+func (s *runScriptStep) validate() error {
+	if s.BuildContext == "" {
+		return errors.New("invalid args: BuildContext is required in RunScript")
+	}
+	if s.Path == "" {
+		return errors.New("invalid args: Path is required in RunScript")
+	}
+	return nil
+}
+
 func (s *runScriptStep) run(runState *state) error {
+	if err := s.validate(); err != nil {
+		return err
+	}
 	log.Printf("Executing script %q...", s.Path)
 	buildContext := filepath.Join(runState.dir, s.BuildContext)
 	script := filepath.Join(buildContext, s.Path)
-	if err := utils.RunCommand([]string{"/bin/bash", script}, buildContext, strings.Split(s.Env, ",")); err != nil {
+	if err := utils.RunCommand([]string{"/bin/bash", script}, buildContext, append(os.Environ(), strings.Split(s.Env, ",")...)); err != nil {
 		return err
 	}
 	log.Printf("Done executing script %q", s.Path)
