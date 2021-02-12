@@ -29,12 +29,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func setup(dockerCredentialGCR string, systemd *systemdClient) error {
+// I typically do not like this style of mocking, but I think it's the best
+// option in this case. These functions cannot execute at all in a normal test
+// environment because they require root privileges. Even if the address to
+// mount is owned by the caller, these functions will fail. To take them out of
+// the test codepath, we can mock them here.
+//
+// I have considered an alternative involving writing a unixPkg interface and
+// passing it through the Deps struct. But it doesn't give us much for its
+// additional verbosity.
+var mountFunc = unix.Mount
+var unmountFunc = unix.Unmount
+
+func setup(rootDir, dockerCredentialGCR string, systemd *systemdClient) error {
 	log.Println("Setting up environment...")
 	if err := systemd.stop("update-engine.service"); err != nil {
 		return err
 	}
-	if err := unix.Mount("", "/root", "tmpfs", 0, ""); err != nil {
+	if err := mountFunc("", filepath.Join(rootDir, "root"), "tmpfs", 0, ""); err != nil {
 		return fmt.Errorf("error mounting tmpfs at /root: %v", err)
 	}
 	cmd := exec.Command(dockerCredentialGCR, "configure-docker")
@@ -65,6 +77,9 @@ func stopServices(systemd *systemdClient) error {
 }
 
 func zeroAllFiles(dir string) error {
+	if _, err := os.Stat(dir); err != nil && os.IsNotExist(err) {
+		return nil
+	}
 	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("error accessing path %q: %v", path, err)
@@ -105,6 +120,11 @@ func cleanup(rootDir, stateDir string) error {
 	log.Println("Cleaning up machine state...")
 	if err := os.RemoveAll(stateDir); err != nil {
 		return err
+	}
+	if err := unmountFunc(filepath.Join(rootDir, "root"), 0); err != nil {
+		// This error can be non-fatal because this is cleaning up a tmpfs mount,
+		// which doesn't impact the final image output in any way
+		log.Printf("Non-fatal error unmounting tmpfs at /root: %v", err)
 	}
 	if err := os.RemoveAll(filepath.Join(rootDir, "mnt", "stateful_partition", "etc")); err != nil && !os.IsNotExist(err) {
 		return err
@@ -179,7 +199,7 @@ func Run(ctx context.Context, deps Deps, stateDir string, c Config) (err error) 
 	if err != nil {
 		return err
 	}
-	if err := setup(deps.DockerCredentialGCR, systemd); err != nil {
+	if err := setup(deps.RootDir, deps.DockerCredentialGCR, systemd); err != nil {
 		return err
 	}
 	if err := executeSteps(runState, c); err != nil {
