@@ -16,28 +16,25 @@ package provisioner
 
 import (
 	"log"
-	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 )
 
-type systemdClient struct {
-	systemctl string
+type runScriptStep struct {
+	BuildContext string
+	Path         string
+	Env          string
 }
 
-func (sc *systemdClient) isActive(unit string) bool {
-	return exec.Command(sc.systemctl, "is-active", unit).Run() == nil
-}
-
-func (sc *systemdClient) stop(unit string) error {
-	if sc.isActive(unit) {
-		log.Printf("%q is active, stopping...", unit)
-		if err := utils.RunCommand([]string{sc.systemctl, "stop", unit}, "", nil); err != nil {
-			return err
-		}
-		log.Printf("%q stopped", unit)
-	} else {
-		log.Printf("%q is not active, ignoring", unit)
+func (s *runScriptStep) run(runState *state) error {
+	log.Printf("Executing script %q...", s.Path)
+	buildContext := filepath.Join(runState.dir, s.BuildContext)
+	script := filepath.Join(buildContext, s.Path)
+	if err := utils.RunCommand([]string{"/bin/bash", script}, buildContext, strings.Split(s.Env, ",")); err != nil {
+		return err
 	}
+	log.Printf("Done executing script %q", s.Path)
 	return nil
 }
