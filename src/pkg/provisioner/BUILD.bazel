@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "provisioner.go",
+        "run_script_step.go",
         "state.go",
         "systemd.go",
     ],

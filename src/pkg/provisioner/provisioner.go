@@ -122,10 +122,35 @@ func cleanup(rootDir, stateDir string) error {
 			return err
 		}
 	}
+	// There are a few files in /var/log that need to exist for daemons to work.
+	// The best way to clear logs is to zero them out instead of deleting them.
 	if err := zeroAllFiles(filepath.Join(rootDir, "var", "log")); err != nil {
 		return err
 	}
 	log.Println("Done cleaning up machine state")
+	return nil
+}
+
+func executeSteps(s *state, c Config) error {
+	for i, step := range c.Steps {
+		// In the case where executeSteps runs after a reboot, we need to skip
+		// through all the steps that have already been completed.
+		if i < s.data.CurrentStep {
+			continue
+		}
+		abstractStep, err := parseStep(step.Type, step.Args)
+		if err != nil {
+			return fmt.Errorf("error parsing step %d: %v", i, err)
+		}
+		if err := abstractStep.run(s); err != nil {
+			return fmt.Errorf("error in step %d: %v", i, err)
+		}
+		// Persist our most recent completed step to disk, so we can resume after a reboot.
+		s.data.CurrentStep++
+		if err := s.write(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -150,13 +175,16 @@ type Deps struct {
 func Run(ctx context.Context, deps Deps, stateDir string, c Config) (err error) {
 	log.Println("Provisioning machine...")
 	systemd := &systemdClient{systemctl: deps.SystemctlCmd}
-	if _, err := initState(ctx, deps, stateDir, c); err != nil {
+	runState, err := initState(ctx, deps, stateDir, c)
+	if err != nil {
 		return err
 	}
 	if err := setup(deps.DockerCredentialGCR, systemd); err != nil {
 		return err
 	}
-	// TODO(rkolchmeyer): Implement the actual provisioning behavior
+	if err := executeSteps(runState, c); err != nil {
+		return err
+	}
 	if err := stopServices(systemd); err != nil {
 		return fmt.Errorf("error stopping services: %v", err)
 	}

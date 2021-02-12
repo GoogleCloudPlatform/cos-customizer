@@ -14,6 +14,11 @@
 
 package provisioner
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // Config defines a provisioning flow.
 type Config struct {
 	// BuildContexts identifies the build contexts that should be used during
@@ -53,6 +58,24 @@ type Config struct {
 	// - Value: The exact text to append to the kernel command line.
 	Steps []struct {
 		Type string
-		Args map[string]string
+		Args *json.RawMessage
+	}
+}
+
+type step interface {
+	run(*state) error
+}
+
+func parseStep(stepType string, stepArgs *json.RawMessage) (step, error) {
+	switch stepType {
+	case "RunScript":
+		var s step
+		s = &runScriptStep{}
+		if err := json.Unmarshal(*stepArgs, s); err != nil {
+			return nil, err
+		}
+		return s, nil
+	default:
+		return nil, fmt.Errorf("unknown step type: %q", stepType)
 	}
 }

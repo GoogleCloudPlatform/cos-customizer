@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"os/exec"
 )
 
 // CheckClose closes an io.Closer and checks its error. Useful for checking the
@@ -37,4 +39,18 @@ func CheckClose(closer io.Closer, errMsgOnClose string, err *error) {
 			log.Println(fullErr)
 		}
 	}
+}
+
+// RunCommand runs a command using exec.Command. The command runs in the working
+// directory "dir" with environment "env" and outputs to stdout and stderr.
+func RunCommand(args []string, dir string, env []string) error {
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = dir
+	cmd.Env = env
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf(`error in cmd "%v", see stderr for details: %v`, args, err)
+	}
+	return nil
 }
