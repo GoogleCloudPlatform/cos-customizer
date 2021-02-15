@@ -46,11 +46,17 @@ type Config struct {
 	//
 	// Type: InstallGPU
 	// Args:
-	// - Version: The nvidia driver version to install
-	// - MD5Sum: An optional md5 hash to use to verify the downloaded nvidia
-	//   installer
-	// - InstallDir: An absolute path to install nvidia drivers in to
-	// - GCSDownloadPrefix: A optional gs:// URI that will be used as a prefix
+	// - NvidiaDriverVersion: The nvidia driver version to install. Can also be
+	//   the name of an nvidia installer .run file. If a .run file is provided and
+	//   a GCSDepsPrefix is provided, the .run file will be fetched from the
+	//   GCSDepsPrefix location.
+	// - NvidiaDriverMD5Sum: An optional md5 hash to use to verify the downloaded nvidia
+	//   installer.
+	// - NvidiaInstallDirHost: An absolute path specifying where nvidia drivers
+	//   should be installed. Defaults to /var/lib/nvidia.
+	// - NvidiaInstallerContainer: The cos-gpu-installer container image to use
+	//   for installing nvidia drivers.
+	// - GCSDepsPrefix: A optional gs:// URI that will be used as a prefix
 	//   for downloading cos-gpu-installer dependencies.
 	//
 	// Type: AppendKernelCmdLine
@@ -71,6 +77,13 @@ func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 	case "RunScript":
 		var s step
 		s = &runScriptStep{}
+		if err := json.Unmarshal(stepArgs, s); err != nil {
+			return nil, err
+		}
+		return s, nil
+	case "InstallGPU":
+		var s step
+		s = &installGPUStep{}
 		if err := json.Unmarshal(stepArgs, s); err != nil {
 			return nil, err
 		}

@@ -22,9 +22,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 
 	"github.com/google/subcommands"
 )
@@ -62,10 +62,6 @@ func (r *RunScript) SetFlags(f *flag.FlagSet) {
 	f.Var(r.env, "env", "Env vars to set before running the script.")
 }
 
-func quoteForShell(str string) string {
-	return fmt.Sprintf("'%s'", strings.Replace(str, "'", "'\"'\"'", -1))
-}
-
 // createEnvFile creates an environment variable file from the given map. During preloading, this file
 // is sourced before the script associated with this step is run. The resulting file is stored in
 // the builtin build context to avoid collisions with user data.
@@ -78,7 +74,7 @@ func createEnvFile(prefix string, files *fs.Files, env map[string]string) (strin
 		return "", err
 	}
 	for k, v := range env {
-		if _, err := fmt.Fprintf(envFile, "export %s=%s\n", k, quoteForShell(v)); err != nil {
+		if _, err := fmt.Fprintf(envFile, "export %s=%s\n", k, utils.QuoteForShell(v)); err != nil {
 			envFile.Close()
 			os.Remove(envFile.Name())
 			return "", err
