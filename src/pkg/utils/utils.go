@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 // CheckClose closes an io.Closer and checks its error. Useful for checking the
@@ -53,4 +54,9 @@ func RunCommand(args []string, dir string, env []string) error {
 		return fmt.Errorf(`error in cmd "%v", see stderr for details: %v`, args, err)
 	}
 	return nil
+}
+
+// QuoteForShell quotes a string for use in a bash shell.
+func QuoteForShell(str string) string {
+	return fmt.Sprintf("'%s'", strings.Replace(str, "'", "'\"'\"'", -1))
 }

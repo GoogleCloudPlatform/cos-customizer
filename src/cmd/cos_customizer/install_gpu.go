@@ -28,6 +28,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 
 	"cloud.google.com/go/storage"
 	"github.com/google/subcommands"
@@ -173,10 +174,10 @@ func (i *InstallGPU) templateScript(scriptPath string) error {
 		NvidiaInstallDirHost string
 		SetCOSDownloadGCS    string
 	}{
-		NvidiaDriverVersion:  quoteForShell(i.NvidiaDriverVersion),
-		NvidiaDriverMd5sum:   quoteForShell(i.NvidiaDriverMd5sum),
-		NvidiaInstallDirHost: quoteForShell(i.NvidiaInstallDirHost),
-		SetCOSDownloadGCS:    quoteForShell(setCOSDownloadGCS),
+		NvidiaDriverVersion:  utils.QuoteForShell(i.NvidiaDriverVersion),
+		NvidiaDriverMd5sum:   utils.QuoteForShell(i.NvidiaDriverMd5sum),
+		NvidiaInstallDirHost: utils.QuoteForShell(i.NvidiaInstallDirHost),
+		SetCOSDownloadGCS:    utils.QuoteForShell(setCOSDownloadGCS),
 	}
 	tmpl, err := template.New(filepath.Base(scriptPath)).ParseFiles(scriptPath)
 	if err != nil {
