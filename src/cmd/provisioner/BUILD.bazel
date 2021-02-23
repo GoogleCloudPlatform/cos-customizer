@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "main.go",
+        "resume.go",
         "run.go",
     ],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/cmd/provisioner",

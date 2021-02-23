@@ -151,8 +151,8 @@ func cleanup(rootDir, stateDir string) error {
 	return nil
 }
 
-func executeSteps(s *state, c Config) error {
-	for i, step := range c.Steps {
+func executeSteps(s *state) error {
+	for i, step := range s.data.Config.Steps {
 		// In the case where executeSteps runs after a reboot, we need to skip
 		// through all the steps that have already been completed.
 		if i < s.data.CurrentStep {
@@ -189,28 +189,42 @@ type Deps struct {
 	RootDir string
 }
 
-// Run runs a full provisioning flow based on the provided config. The stateDir
-// is used for persisting data used as part of provisioning. The stateDir allows
-// the provisioning flow to be interrupted (e.g. by a reboot) and resumed.
-func Run(ctx context.Context, deps Deps, stateDir string, c Config) (err error) {
-	log.Println("Provisioning machine...")
+func run(deps Deps, runState *state) (err error) {
 	systemd := &systemdClient{systemctl: deps.SystemctlCmd}
-	runState, err := initState(ctx, deps, stateDir, c)
-	if err != nil {
-		return err
-	}
 	if err := setup(deps.RootDir, deps.DockerCredentialGCR, systemd); err != nil {
 		return err
 	}
-	if err := executeSteps(runState, c); err != nil {
+	if err := executeSteps(runState); err != nil {
 		return err
 	}
 	if err := stopServices(systemd); err != nil {
 		return fmt.Errorf("error stopping services: %v", err)
 	}
-	if err := cleanup(deps.RootDir, stateDir); err != nil {
+	if err := cleanup(deps.RootDir, runState.dir); err != nil {
 		return fmt.Errorf("error in cleanup: %v", err)
 	}
 	log.Println("Done provisioning machine")
 	return nil
+}
+
+// Run runs a full provisioning flow based on the provided config. The stateDir
+// is used for persisting data used as part of provisioning. The stateDir allows
+// the provisioning flow to be interrupted (e.g. by a reboot) and resumed.
+func Run(ctx context.Context, deps Deps, stateDir string, c Config) error {
+	log.Println("Provisioning machine...")
+	runState, err := initState(ctx, deps, stateDir, c)
+	if err != nil {
+		return err
+	}
+	return run(deps, runState)
+}
+
+// Resume resumes provisioning from the state provided at stateDir.
+func Resume(ctx context.Context, deps Deps, stateDir string) (err error) {
+	log.Println("Resuming provisioning...")
+	runState, err := loadState(stateDir)
+	if err != nil {
+		return err
+	}
+	return run(deps, runState)
 }

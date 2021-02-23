@@ -22,7 +22,10 @@ import (
 	"log"
 	"os"
 
+	"cloud.google.com/go/storage"
 	"github.com/google/subcommands"
+
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 )
 
 var (
@@ -36,8 +39,21 @@ func main() {
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.Register(subcommands.FlagsCommand(), "")
 	subcommands.Register(&Run{}, "")
+	subcommands.Register(&Resume{}, "")
 	flag.Parse()
 	ctx := context.Background()
-	ret := int(subcommands.Execute(ctx))
+	gcsClient, err := storage.NewClient(ctx)
+	if err != nil {
+		log.Println(err)
+		os.Exit(int(subcommands.ExitFailure))
+	}
+	deps := provisioner.Deps{
+		GCSClient:           gcsClient,
+		TarCmd:              "tar",
+		SystemctlCmd:        "systemctl",
+		DockerCredentialGCR: "docker-credential-gcr",
+		RootDir:             "/",
+	}
+	ret := int(subcommands.Execute(ctx, deps))
 	os.Exit(ret)
 }
