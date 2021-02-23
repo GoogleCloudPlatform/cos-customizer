@@ -49,6 +49,17 @@ func (s *state) dataPath() string {
 	return filepath.Join(s.dir, "state.json")
 }
 
+func (s *state) read() error {
+	data, err := ioutil.ReadFile(s.dataPath())
+	if err != nil {
+		return fmt.Errorf("error reading %q: %v", s.dataPath(), err)
+	}
+	if err := json.Unmarshal(data, &s.data); err != nil {
+		return fmt.Errorf("error parsing JSON file %q: %v", s.dataPath(), err)
+	}
+	return nil
+}
+
 func (s *state) write() error {
 	data, err := json.Marshal(&s.data)
 	if err != nil {
@@ -124,6 +135,14 @@ func initState(ctx context.Context, deps Deps, dir string, c Config) (*state, er
 	}
 	if err := s.unpackBuildContexts(ctx, deps); err != nil {
 		return nil, fmt.Errorf("error unpacking build contexts: %v", err)
+	}
+	return s, nil
+}
+
+func loadState(dir string) (*state, error) {
+	s := &state{dir: dir}
+	if err := s.read(); err != nil {
+		return nil, err
 	}
 	return s, nil
 }
