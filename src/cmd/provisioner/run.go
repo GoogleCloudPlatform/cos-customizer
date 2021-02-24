@@ -27,6 +27,8 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 )
 
+const rebootMsg = "Reboot is required to continue provisioning. Please reboot the system and resume provisioning with the `resume` subcommand."
+
 // Run implements subcommands.Command for the "run" command.
 // This command runs the provisioner from a provided configuration file.
 type Run struct {
@@ -40,7 +42,7 @@ func (r *Run) Name() string {
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (r *Run) Synopsis() string {
-	return "Provision a COS instance from the provided configuration file."
+	return "Provision a COS instance from the provided configuration file. Has an exit code of 3 if a reboot is required after execution."
 }
 
 // Usage implements subcommands.Command.Usage.
@@ -64,6 +66,7 @@ func (r *Run) validate() error {
 // Execute implements subcommands.Command.Execute.
 func (r *Run) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	deps := args[0].(provisioner.Deps)
+	exitCode := args[1].(*int)
 	if err := r.validate(); err != nil {
 		log.Printf("Error in flags: %v", err)
 		return subcommands.ExitUsageError
@@ -79,6 +82,11 @@ func (r *Run) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{})
 		return subcommands.ExitFailure
 	}
 	if err := provisioner.Run(ctx, deps, *stateDir, c); err != nil {
+		if errors.Is(err, provisioner.ErrRebootRequired) {
+			log.Println(rebootMsg)
+			*exitCode = 3
+			return subcommands.ExitSuccess
+		}
 		log.Printf("Provisioning error: %v", err)
 		return subcommands.ExitFailure
 	}

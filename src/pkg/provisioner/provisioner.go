@@ -18,6 +18,7 @@ package provisioner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -28,6 +29,10 @@ import (
 	"cloud.google.com/go/storage"
 	"golang.org/x/sys/unix"
 )
+
+// ErrRebootRequired indicates that a reboot is necessary for provisioning to
+// continue.
+var ErrRebootRequired = errors.New("reboot required to continue provisioning")
 
 // I typically do not like this style of mocking, but I think it's the best
 // option in this case. These functions cannot execute at all in a normal test
@@ -184,6 +189,10 @@ type Deps struct {
 	SystemctlCmd string
 	// DockerCredentialGCR is the path to the docker-credential-gcr binary.
 	DockerCredentialGCR string
+	// RootdevCmd is the path to the rootdev binary.
+	RootdevCmd string
+	// CgptCmd is the path to the cgpt binary.
+	CgptCmd string
 	// RootDir is the path to the root file system. Should be "/" in all real
 	// runtime situations.
 	RootDir string
@@ -191,6 +200,9 @@ type Deps struct {
 
 func run(deps Deps, runState *state) (err error) {
 	systemd := &systemdClient{systemctl: deps.SystemctlCmd}
+	if err := repartitionBootDisk(deps, runState); err != nil {
+		return err
+	}
 	if err := setup(deps.RootDir, deps.DockerCredentialGCR, systemd); err != nil {
 		return err
 	}
