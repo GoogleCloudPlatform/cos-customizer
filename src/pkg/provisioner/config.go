@@ -31,7 +31,7 @@ type Config struct {
 	BootDisk struct {
 		StatefulSize string
 		OEMSize      string
-		ReclaimSDA3  string
+		ReclaimSDA3  bool
 		VerifiedOEM  bool
 	}
 	// Steps are provisioning behaviors that can be run.

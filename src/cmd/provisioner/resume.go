@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"log"
 
@@ -35,7 +36,7 @@ func (r *Resume) Name() string {
 
 // Synopsis implements subcommands.Command.Synopsis.
 func (r *Resume) Synopsis() string {
-	return "Resume provisioning from provided state."
+	return "Resume provisioning from provided state. Has an exit code of 3 if a reboot is required after execution."
 }
 
 // Usage implements subcommands.Command.Usage.
@@ -50,7 +51,13 @@ func (r *Resume) SetFlags(f *flag.FlagSet) {}
 // Execute implements subcommands.Command.Execute.
 func (r *Resume) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	deps := args[0].(provisioner.Deps)
+	exitCode := args[1].(*int)
 	if err := provisioner.Resume(ctx, deps, *stateDir); err != nil {
+		if errors.Is(err, provisioner.ErrRebootRequired) {
+			log.Println(rebootMsg)
+			*exitCode = 3
+			return subcommands.ExitSuccess
+		}
 		log.Printf("Provisioning error: %v", err)
 		return subcommands.ExitFailure
 	}

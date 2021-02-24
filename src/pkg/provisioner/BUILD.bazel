@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "disk_layout.go",
         "gpu_setup_script.go",
         "install_gpu_step.go",
         "provisioner.go",

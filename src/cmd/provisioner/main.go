@@ -52,8 +52,14 @@ func main() {
 		TarCmd:              "tar",
 		SystemctlCmd:        "systemctl",
 		DockerCredentialGCR: "docker-credential-gcr",
+		RootdevCmd:          "rootdev",
+		CgptCmd:             "cgpt",
 		RootDir:             "/",
 	}
-	ret := int(subcommands.Execute(ctx, deps))
-	os.Exit(ret)
+	var exitCode int
+	ret := subcommands.Execute(ctx, deps, &exitCode)
+	if ret != subcommands.ExitSuccess {
+		os.Exit(int(ret))
+	}
+	os.Exit(exitCode)
 }
