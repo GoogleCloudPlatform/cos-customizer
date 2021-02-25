@@ -138,7 +138,6 @@ func HandleDiskLayout(disk string, statePartNum, oemPartNum int, oemSize string,
 // Otherwise, start point will be the original start of the stateful partition.
 // It will return startPointSector, returnAndReboot, error.
 func checkAndReclaimSDA3(disk string, statePartNum int, reclaimSDA3 bool) (uint64, bool, error) {
-	const minSize = 8 // 8*512 bytes/sector =  4K bytes
 	// In some situations, `sfdisk --move-data` requires 1MB free space
 	// in the moving direction. Therefore, leaving 2MB after the start of
 	// sda3 is a safe choice.
@@ -148,13 +147,12 @@ func checkAndReclaimSDA3(disk string, statePartNum int, reclaimSDA3 bool) (uint6
 	var err error
 	if reclaimSDA3 {
 		// check whether sda3 has already been shrinked.
-		sda3SizeSector, err := partutil.ReadPartitionSize("/dev/sda", 3)
+		minimal, err := partutil.IsPartitionMinimal("/dev/sda", 3)
 		if err != nil {
-			return 0, false, fmt.Errorf("error in reading the size of sda3, "+
-				"error msg: (%v)", err)
+			return 0, false, err
 		}
 		// not shrinked yet.
-		if sda3SizeSector > minSize {
+		if !minimal {
 			_, err = partutil.MinimizePartition("/dev/sda", 3)
 			if err != nil {
 				return 0, false, fmt.Errorf("error in shrinking sda3, "+

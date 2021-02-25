@@ -24,6 +24,11 @@ import (
 	"strings"
 )
 
+// minPartitionSizeSectors is the minimum partition size on COS in sectors. This
+// size was chosen to maintain 4K alignment of partition start sectors (8
+// sectors = 4K bytes).
+const minPartitionSizeSectors = uint64(8)
+
 // When we read disk information by dumping the partition table, we get output like the following:
 // sudo sfdisk --dump /dev/sdb
 // label: gpt
@@ -168,12 +173,25 @@ func ReadPartitionStart(disk string, partNumInt int) (uint64, error) {
 	return start, nil
 }
 
+// IsPartitionMinimal determines if a partition is the smallest size it can be.
+// If this function returns true, MinimizePartition can make the given partition
+// smaller.
+func IsPartitionMinimal(disk string, partNumInt int) (bool, error) {
+	numSectors, err := ReadPartitionSize(disk, partNumInt)
+	if err != nil {
+		return false, err
+	}
+	if numSectors > minPartitionSizeSectors {
+		return false, nil
+	}
+	return true, nil
+}
+
 // MinimizePartition minimizes the input partition and
 // returns the next sector of the end sector.
 // The smallest partition from fdisk is 1 sector partition.
 func MinimizePartition(disk string, partNumInt int) (uint64, error) {
-	// Make sure the next partition can start at a 4K aligned sector.
-	const minSize = 8 // 4K bytes
+	minSize := minPartitionSizeSectors
 	if len(disk) == 0 || partNumInt <= 0 {
 		return 0, fmt.Errorf("empty disk name or nonpositive part number, "+
 			"input: disk=%q, partNumInt=%d", disk, partNumInt)

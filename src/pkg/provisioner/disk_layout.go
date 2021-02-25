@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/tools/partutil"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 )
 
@@ -68,6 +69,28 @@ func switchRoot(deps Deps, runState *state) (err error) {
 	return ErrRebootRequired
 }
 
+func shrinkSDA3(deps Deps, runState *state) error {
+	if !runState.data.Config.BootDisk.ReclaimSDA3 {
+		log.Println("ReclaimSDA3 is not set, not shrinking sda3")
+		return nil
+	}
+	device := filepath.Join(deps.RootDir, "dev", "sda")
+	minimal, err := partutil.IsPartitionMinimal(device, 3)
+	if err != nil {
+		return fmt.Errorf("error checking /dev/sda3 size: %v", err)
+	}
+	if minimal {
+		log.Println("/dev/sda3 is minimally sized, not shrinking sda3")
+		return nil
+	}
+	log.Println("ReclaimSDA3 is set, and /dev/sda3 is not minimal; now shrinking sda3")
+	if _, err := partutil.MinimizePartition(device, 3); err != nil {
+		return fmt.Errorf("error minimizing /dev/sda3: %v", err)
+	}
+	log.Println("Reboot required to reload partition table changes")
+	return ErrRebootRequired
+}
+
 // repartitionBootDisk executes all behaviors related to repartitioning the boot
 // disk. Most of these behaviors require a reboot. To keep reboots simple (e.g.
 // we don't want to initiate a reboot when deferred statements are unresolved),
@@ -75,6 +98,9 @@ func switchRoot(deps Deps, runState *state) (err error) {
 // initiate the reboot.
 func repartitionBootDisk(deps Deps, runState *state) error {
 	if err := switchRoot(deps, runState); err != nil {
+		return err
+	}
+	if err := shrinkSDA3(deps, runState); err != nil {
 		return err
 	}
 	return nil
