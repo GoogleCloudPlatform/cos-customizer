@@ -109,7 +109,7 @@ download_gcs_object() {
     service-accounts/default/token)"
   local -r access_token="$(echo "${creds}" | docker run --rm -i "${PYTHON_IMG}" \
     python -c "import sys; import json; print(json.loads(sys.stdin.read())['access_token'])")"
-  curl -X GET \
+  curl --http1.1 -X GET \
     --retry 5 \
     -H "Authorization: Bearer ${access_token}" \
     -o "$(basename "${object}")" \
