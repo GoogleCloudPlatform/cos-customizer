@@ -1,4 +1,16 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//extras:embed_data.bzl", "go_embed_data")
+
+# Our goal is for this program to be embedded into this Go package. Go embed
+# only allows files in the same package directory to be embedded. So we need to
+# use a "no-op" genrule to place this binary in the same directory as the
+# package source.
+genrule(
+    name = "handle_disk_layout.bin",
+    srcs = ["//src/cmd/handle_disk_layout:handle_disk_layout_bin"],
+    outs = ["_handle_disk_layout.bin"],
+    cmd = "cp $< $@",
+)
 
 go_library(
     name = "go_default_library",
@@ -11,6 +23,9 @@ go_library(
         "run_script_step.go",
         "state.go",
         "systemd.go",
+    ],
+    embedsrcs = [
+        ":handle_disk_layout.bin",
     ],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner",
     visibility = ["//visibility:public"],

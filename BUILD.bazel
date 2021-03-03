@@ -130,7 +130,7 @@ container_image(
 go_image(
     name = "cos_customizer",
     base = ":cos_customizer_base",
-    embed = ["//src/cmd/cos_customizer"],
+    embed = ["//src/cmd/cos_customizer:go_default_library"],
     goarch = "amd64",
     goos = "linux",
     pure = "on",
