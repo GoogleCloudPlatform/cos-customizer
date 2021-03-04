@@ -138,21 +138,29 @@ TTYPath=/dev/ttyS2
 	return nil
 }
 
+func calcSDA3End(device string) (uint64, error) {
+	sda3Start, err := partutil.ReadPartitionStart(device, 3)
+	if err != nil {
+		return 0, err
+	}
+	sda3Size, err := partutil.ReadPartitionSize(device, 3)
+	if err != nil {
+		return 0, err
+	}
+	sda3End := sda3Start + sda3Size - 1
+	return sda3End, nil
+}
+
 func relocatePartitions(deps Deps, runState *state) error {
 	if !runState.data.Config.BootDisk.ReclaimSDA3 && runState.data.Config.BootDisk.OEMSize == "" {
 		log.Println("ReclaimSDA3 is not set, OEM resize not requested, not relocating partitions")
 		return nil
 	}
 	device := filepath.Join(deps.RootDir, "dev", "sda")
-	sda3Start, err := partutil.ReadPartitionStart(device, 3)
+	sda3End, err := calcSDA3End(device)
 	if err != nil {
 		return err
 	}
-	sda3Size, err := partutil.ReadPartitionSize(device, 3)
-	if err != nil {
-		return err
-	}
-	sda3End := sda3Start + sda3Size - 1
 	if runState.data.Config.BootDisk.OEMSize != "" {
 		// Check if OEM partition is after sda3; if so, then we're done
 		oemStart, err := partutil.ReadPartitionStart(device, 8)
@@ -192,6 +200,44 @@ func relocatePartitions(deps Deps, runState *state) error {
 	return ErrRebootRequired
 }
 
+func resizeOEMFileSystem(deps Deps, runState *state) error {
+	if !runState.data.Config.BootDisk.ReclaimSDA3 && runState.data.Config.BootDisk.OEMSize == "" {
+		log.Println("ReclaimSDA3 is not set, OEM resize not requested, partition relocation did not occur, FS resize unnecessary")
+		return nil
+	}
+	// Check if OEM partition is after sda3; if so, then relocation occurred and
+	// we need to resize the file system.
+	device := filepath.Join(deps.RootDir, "dev", "sda")
+	sda3End, err := calcSDA3End(device)
+	if err != nil {
+		return err
+	}
+	oemStart, err := partutil.ReadPartitionStart(device, 8)
+	if err != nil {
+		return err
+	}
+	if oemStart < sda3End {
+		log.Println("OEM partition is before sda3; relocation did not occur, FS resize unnecessary")
+		return nil
+	}
+	log.Println("Partition relocation appears to have occurred, resizing the OEM file system")
+	systemd := systemdClient{systemctl: deps.SystemctlCmd}
+	if err := systemd.stop("usr-share-oem.mount"); err != nil {
+		return err
+	}
+	if err := utils.RunCommand([]string{deps.E2fsckCmd, "-fp", filepath.Join(deps.RootDir, "dev", "sda8")}, "", nil); err != nil {
+		return err
+	}
+	if err := utils.RunCommand([]string{deps.Resize2fsCmd, filepath.Join(deps.RootDir, "dev", "sda8")}, "", nil); err != nil {
+		return err
+	}
+	if err := systemd.start("usr-share-oem.mount", nil); err != nil {
+		return err
+	}
+	log.Println("OEM file system resized to account for available space")
+	return nil
+}
+
 // repartitionBootDisk executes all behaviors related to repartitioning the boot
 // disk. Most of these behaviors require a reboot. To keep reboots simple (e.g.
 // we don't want to initiate a reboot when deferred statements are unresolved),
@@ -205,6 +251,9 @@ func repartitionBootDisk(deps Deps, runState *state) error {
 		return err
 	}
 	if err := relocatePartitions(deps, runState); err != nil {
+		return err
+	}
+	if err := resizeOEMFileSystem(deps, runState); err != nil {
 		return err
 	}
 	return nil
