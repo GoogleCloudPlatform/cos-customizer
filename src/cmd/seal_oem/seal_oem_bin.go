@@ -34,7 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("error: the argument oemFSSize4K must be an uint64")
 	}
-	if err := tools.SealOEMPartition(oemFSSize4K); err != nil {
+	if err := tools.SealOEMPartition("./veritysetup.img", oemFSSize4K); err != nil {
 		log.Fatalln(err.Error())
 	}
 }
