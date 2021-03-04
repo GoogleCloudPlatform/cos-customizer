@@ -29,10 +29,9 @@ type Config struct {
 	BuildContexts map[string]string
 	// BootDisk defines how the boot disk should be configured.
 	BootDisk struct {
-		StatefulSize string
-		OEMSize      string
-		ReclaimSDA3  bool
-		VerifiedOEM  bool
+		OEMSize           string
+		ReclaimSDA3       bool
+		WaitForDiskResize bool
 	}
 	// Steps are provisioning behaviors that can be run.
 	// The supported provisioning behaviors are:

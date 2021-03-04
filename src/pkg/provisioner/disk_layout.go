@@ -16,6 +16,7 @@ package provisioner
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -24,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -151,6 +153,37 @@ func calcSDA3End(device string) (uint64, error) {
 	return sda3End, nil
 }
 
+func waitForDiskResize(deps Deps, runState *state) error {
+	if !runState.data.Config.BootDisk.WaitForDiskResize {
+		log.Println("WaitForDiskResize is not set, not waiting for a boot disk resize")
+		return nil
+	}
+	if runState.data.DiskResizeComplete {
+		log.Println("Already finished waiting for disk resize, not waiting again")
+		return nil
+	}
+	startSize, err := ioutil.ReadFile(filepath.Join(deps.RootDir, "sys/class/block/sda/size"))
+	if err != nil {
+		return err
+	}
+	log.Println("WaitForDiskResize is set; waiting for the boot disk size to change. Timeout is 3 minutes")
+	start := time.Now()
+	end := start.Add(3 * time.Minute)
+	for time.Now().Before(end) {
+		curSize, err := ioutil.ReadFile(filepath.Join(deps.RootDir, "sys/class/block/sda/size"))
+		if err != nil {
+			return err
+		}
+		if string(curSize) != string(startSize) {
+			log.Printf("Boot disk size has changed: start %q, end %q", strings.TrimSpace(string(startSize)), strings.TrimSpace(string(curSize)))
+			runState.data.DiskResizeComplete = true
+			return runState.write()
+		}
+		time.Sleep(time.Second)
+	}
+	return errors.New("timed out waiting for disk resize")
+}
+
 func relocatePartitions(deps Deps, runState *state) error {
 	if !runState.data.Config.BootDisk.ReclaimSDA3 && runState.data.Config.BootDisk.OEMSize == "" {
 		log.Println("ReclaimSDA3 is not set, OEM resize not requested, not relocating partitions")
@@ -248,6 +281,9 @@ func repartitionBootDisk(deps Deps, runState *state) error {
 		return err
 	}
 	if err := shrinkSDA3(deps, runState); err != nil {
+		return err
+	}
+	if err := waitForDiskResize(deps, runState); err != nil {
 		return err
 	}
 	if err := relocatePartitions(deps, runState); err != nil {
