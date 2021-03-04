@@ -193,6 +193,10 @@ type Deps struct {
 	RootdevCmd string
 	// CgptCmd is the path to the cgpt binary.
 	CgptCmd string
+	// Resize2fsCmd is the path to the resize2fs binary.
+	Resize2fsCmd string
+	// E2fsckCmd is the path to the e2fsck binary.
+	E2fsckCmd string
 	// RootDir is the path to the root file system. Should be "/" in all real
 	// runtime situations.
 	RootDir string

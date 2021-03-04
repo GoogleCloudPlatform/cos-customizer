@@ -54,6 +54,8 @@ func main() {
 		DockerCredentialGCR: "docker-credential-gcr",
 		RootdevCmd:          "rootdev",
 		CgptCmd:             "cgpt",
+		Resize2fsCmd:        "resize2fs",
+		E2fsckCmd:           "e2fsck",
 		RootDir:             "/",
 	}
 	var exitCode int
