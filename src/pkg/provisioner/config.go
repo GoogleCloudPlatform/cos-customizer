@@ -58,9 +58,8 @@ type Config struct {
 	// - GCSDepsPrefix: A optional gs:// URI that will be used as a prefix
 	//   for downloading cos-gpu-installer dependencies.
 	//
-	// Type: AppendKernelCmdLine
-	// Args:
-	// - Value: The exact text to append to the kernel command line.
+	// Type: DisableAutoUpdate
+	// Args: This step takes no arguments.
 	Steps []struct {
 		Type string
 		Args json.RawMessage
@@ -87,6 +86,8 @@ func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 			return nil, err
 		}
 		return s, nil
+	case "DisableAutoUpdate":
+		return &disableAutoUpdateStep{}, nil
 	default:
 		return nil, fmt.Errorf("unknown step type: %q", stepType)
 	}
