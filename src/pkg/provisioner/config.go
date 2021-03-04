@@ -30,6 +30,7 @@ type Config struct {
 	// BootDisk defines how the boot disk should be configured.
 	BootDisk struct {
 		OEMSize           string
+		OEMFSSize4K       uint64
 		ReclaimSDA3       bool
 		WaitForDiskResize bool
 	}
@@ -60,6 +61,9 @@ type Config struct {
 	//
 	// Type: DisableAutoUpdate
 	// Args: This step takes no arguments.
+	//
+	// Type: SealOEM
+	// Args: This step takes no arguments.
 	Steps []struct {
 		Type string
 		Args json.RawMessage
@@ -88,6 +92,8 @@ func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 		return s, nil
 	case "DisableAutoUpdate":
 		return &disableAutoUpdateStep{}, nil
+	case "SealOEM":
+		return &sealOEMStep{}, nil
 	default:
 		return nil, fmt.Errorf("unknown step type: %q", stepType)
 	}

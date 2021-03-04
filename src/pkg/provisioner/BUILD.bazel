@@ -12,6 +12,13 @@ genrule(
     cmd = "cp $< $@",
 )
 
+genrule(
+    name = "veritysetup.img",
+    srcs = ["//:veritysetup.tar"],
+    outs = ["_veritysetup.img"],
+    cmd = "cp $< $@",
+)
+
 go_library(
     name = "go_default_library",
     srcs = [
@@ -22,11 +29,13 @@ go_library(
         "install_gpu_step.go",
         "provisioner.go",
         "run_script_step.go",
+        "seal_oem_step.go",
         "state.go",
         "systemd.go",
     ],
     embedsrcs = [
         ":handle_disk_layout.bin",
+        ":veritysetup.img",
     ],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner",
     visibility = ["//visibility:public"],

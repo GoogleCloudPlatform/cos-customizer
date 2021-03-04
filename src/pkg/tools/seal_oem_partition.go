@@ -30,9 +30,8 @@ import (
 // SealOEMPartition sets the hashtree of the OEM partition
 // with "veritysetup" and modifies the kernel command line to
 // verify the OEM partition at boot time.
-func SealOEMPartition(oemFSSize4K uint64) error {
+func SealOEMPartition(veritysetupImgPath string, oemFSSize4K uint64) error {
 	const devName = "oemroot"
-	const veritysetupImgPath = "./veritysetup.img"
 	imageID, err := loadVeritysetupImage(veritysetupImgPath)
 	if err != nil {
 		return fmt.Errorf("cannot load veritysetup image at %q, error msg:(%v)", veritysetupImgPath, err)

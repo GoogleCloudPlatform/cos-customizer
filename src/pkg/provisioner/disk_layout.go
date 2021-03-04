@@ -24,6 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -258,10 +259,15 @@ func resizeOEMFileSystem(deps Deps, runState *state) error {
 	if err := systemd.stop("usr-share-oem.mount"); err != nil {
 		return err
 	}
-	if err := utils.RunCommand([]string{deps.E2fsckCmd, "-fp", filepath.Join(deps.RootDir, "dev", "sda8")}, "", nil); err != nil {
+	sda8 := filepath.Join(deps.RootDir, "dev", "sda8")
+	if err := utils.RunCommand([]string{deps.E2fsckCmd, "-fp", sda8}, "", nil); err != nil {
 		return err
 	}
-	if err := utils.RunCommand([]string{deps.Resize2fsCmd, filepath.Join(deps.RootDir, "dev", "sda8")}, "", nil); err != nil {
+	resizeArgs := []string{deps.Resize2fsCmd, sda8}
+	if runState.data.Config.BootDisk.OEMFSSize4K != 0 {
+		resizeArgs = append(resizeArgs, strconv.FormatUint(runState.data.Config.BootDisk.OEMFSSize4K, 10))
+	}
+	if err := utils.RunCommand(resizeArgs, "", nil); err != nil {
 		return err
 	}
 	if err := systemd.start("usr-share-oem.mount", nil); err != nil {

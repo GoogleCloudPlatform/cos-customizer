@@ -78,6 +78,7 @@ container_image(
         packages["libm17n-0"],
         packages["libgpg-error0"],
     ],
+    visibility = ["//visibility:public"],
 )
 
 genrule(
