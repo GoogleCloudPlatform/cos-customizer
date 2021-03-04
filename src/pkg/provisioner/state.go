@@ -36,8 +36,9 @@ var (
 )
 
 type stateData struct {
-	Config      Config
-	CurrentStep int
+	Config             Config
+	CurrentStep        int
+	DiskResizeComplete bool
 }
 
 type state struct {
