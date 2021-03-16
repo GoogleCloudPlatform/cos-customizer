@@ -27,9 +27,9 @@ import (
 //go:embed _veritysetup.img
 var veritysetupImg []byte
 
-type sealOEMStep struct{}
+type SealOEMStep struct{}
 
-func (s *sealOEMStep) run(runState *state) error {
+func (s *SealOEMStep) run(runState *state) error {
 	log.Println("Sealing the OEM partition with dm-verity")
 	veritysetupImgPath := filepath.Join(runState.dir, "veritysetup.img")
 	if _, err := os.Stat(veritysetupImgPath); os.IsNotExist(err) {
