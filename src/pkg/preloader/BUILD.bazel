@@ -14,6 +14,27 @@
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
+genrule(
+    name = "cidata",
+    srcs = [
+        "//src/cmd/provisioner:provisioner",
+        "//src/cmd/metadata_watcher:metadata_watcher",
+    ],
+    outs = ["cidata.img"],
+    tools = [
+        "@dosfstools//:mkfs.fat",
+        "@mtools//:mcopy",
+    ],
+    cmd = "\
+$(location @dosfstools//:mkfs.fat) -n CIDATA -S 512 -s 8 -C $@ 65536;\
+touch meta-data;\
+touch user-data;\
+$(location @mtools//:mcopy) -i $@ user-data ::/user-data;\
+$(location @mtools//:mcopy) -i $@ meta-data ::/meta-data;\
+$(location @mtools//:mcopy) -i $@ $(location //src/cmd/provisioner:provisioner) ::/provisioner;\
+$(location @mtools//:mcopy) -i $@ $(location //src/cmd/metadata_watcher:metadata_watcher) ::/metadata_watcher;"
+)
+
 go_library(
     name = "go_default_library",
     srcs = [

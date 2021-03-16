@@ -54,6 +54,13 @@ http_archive(
     urls = ["https://github.com/bazelbuild/rules_pkg/releases/download/0.2.6-1/rules_pkg-0.2.6.tar.gz"],
 )
 
+http_archive(
+    name = "rules_foreign_cc",
+    sha256 = "ab805b9e00747ba9b184790cbe2d4d19b672770fcac437f01d8c101ae60df996",
+    strip_prefix = "rules_foreign_cc-c309ec13192f69a46aaaba39587c3d7ff684eb35",
+    urls = ["https://github.com/bazelbuild/rules_foreign_cc/archive/c309ec13192f69a46aaaba39587c3d7ff684eb35.zip"],
+)
+
 git_repository(
     name = "com_google_protobuf",
     commit = "31ebe2ac71400344a5db91ffc13c4ddfb7589f92",
@@ -156,6 +163,7 @@ dpkg_list(
         "libpthread-stubs0-dev",
         "libm17n-0",
         "libgpg-error0",
+        "mtools",
     ],
     sources = [
         "@debian_stretch//file:Packages.json",
@@ -166,3 +174,12 @@ load("//:deps.bzl", "go_mod_deps")
 
 # gazelle:repository_macro deps.bzl%go_mod_deps
 go_mod_deps()
+
+load("@rules_foreign_cc//:workspace_definitions.bzl", "rules_foreign_cc_dependencies")
+rules_foreign_cc_dependencies()
+
+load("//src/third_party/dosfstools:dosfstools_repositories.bzl", "dosfstools_repositories")
+dosfstools_repositories()
+
+load("//src/third_party/mtools:mtools_repositories.bzl", "mtools_repositories")
+mtools_repositories()
