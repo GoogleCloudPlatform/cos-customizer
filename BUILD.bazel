@@ -117,6 +117,7 @@ container_image(
         packages["libc6"],
         packages["libselinux1"],
         packages["libpcre3"],
+        packages["mtools"],
     ],
     files = [
         ":workspace_dir",
