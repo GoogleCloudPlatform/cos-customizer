@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -24,7 +25,9 @@ import (
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/subcommands"
 )
 
@@ -53,6 +56,15 @@ func setupRunScriptFiles() (string, *fs.Files, error) {
 	}
 	files.StateFile, err = createTempFile(tmpDir)
 	if err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
+	files.ProvConfig, err = createTempFile(tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
+	if err := ioutil.WriteFile(files.ProvConfig, []byte("{}"), 0644); err != nil {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
 	}
@@ -97,24 +109,57 @@ func executeRunScript(files *fs.Files, flags ...string) (subcommands.ExitStatus,
 	return ret, nil
 }
 
+func mustMarshalJSON(t *testing.T, v interface{}) []byte {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
 func TestRunScript(t *testing.T) {
 	var testData = []struct {
-		testName   string
-		flags      []string
-		wantPrefix []byte
-		wantFiles  int
+		testName       string
+		flags          []string
+		wantPrefix     []byte
+		wantFiles      int
+		wantProvConfig provisioner.Config
 	}{
 		{
-			"NoEnv",
-			nil,
-			[]byte("user\tscript\t\n"),
-			0,
+			testName:   "NoEnv",
+			flags:      nil,
+			wantPrefix: []byte("user\tscript\t\n"),
+			wantFiles:  0,
+			wantProvConfig: provisioner.Config{
+				Steps: []provisioner.StepConfig{
+					{
+						Type: "RunScript",
+						Args: mustMarshalJSON(t, &provisioner.RunScriptStep{
+							BuildContext: "user",
+							Path:         "script",
+						}),
+					},
+				},
+			},
 		},
 		{
-			"Env",
-			[]string{"-env=HELLO1=world1,HELLO2=world2"},
-			[]byte("user\tscript\tuser_env"),
-			1,
+			testName:   "Env",
+			flags:      []string{"-env=HELLO1=world1,HELLO2=world2"},
+			wantPrefix: []byte("user\tscript\tuser_env"),
+			wantFiles:  1,
+			wantProvConfig: provisioner.Config{
+				Steps: []provisioner.StepConfig{
+					{
+						Type: "RunScript",
+						Args: mustMarshalJSON(t, &provisioner.RunScriptStep{
+							BuildContext: "user",
+							Path:         "script",
+							Env:          "HELLO1=world1,HELLO2=world2",
+						}),
+					},
+				},
+			},
 		},
 	}
 	for _, input := range testData {
@@ -136,6 +181,17 @@ func TestRunScript(t *testing.T) {
 			}
 			if !strings.HasPrefix(string(got), string(input.wantPrefix)) {
 				t.Errorf("run-script(%v): state file: got %s, want prefix %s", input.flags, string(got), string(input.wantPrefix))
+			}
+			var provConfig provisioner.Config
+			got, err = ioutil.ReadFile(files.ProvConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(got, &provConfig); err != nil {
+				t.Fatal(err)
+			}
+			if diff := cmp.Diff(provConfig, input.wantProvConfig); diff != "" {
+				t.Errorf("run-script(%v): provisioner config mismatch: diff (-got, +want): %s", input.flags, diff)
 			}
 			outputFiles, err := ioutil.ReadDir(files.PersistBuiltinBuildContext)
 			if err != nil {

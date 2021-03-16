@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -90,6 +91,17 @@ func SaveConfigToFile(configFile *os.File, v interface{}) error {
 	return nil
 }
 
+// SaveConfigToPath does the same thing as SaveConfigToFile, but updates a file
+// system path.
+func SaveConfigToPath(configPath string, config interface{}) (err error) {
+	configFile, err := os.OpenFile(configPath, os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+	defer utils.CheckClose(configFile, "error writing to "+configPath, &err)
+	return SaveConfigToFile(configFile, config)
+}
+
 // Save serializes the given struct as JSON and writes it out.
 func Save(w io.Writer, v interface{}) error {
 	data, err := json.Marshal(v)
@@ -110,10 +122,11 @@ func Load(r io.Reader, v interface{}) error {
 }
 
 // LoadFromFile loads JSON data from a file into the given struct.
-func LoadFromFile(path string, v interface{}) error {
+func LoadFromFile(path string, v interface{}) (err error) {
 	r, err := os.Open(path)
 	if err != nil {
 		return err
 	}
+	defer utils.CheckClose(r, fmt.Sprintf("error closing %q", path), &err)
 	return Load(r, v)
 }

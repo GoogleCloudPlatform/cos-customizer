@@ -24,13 +24,13 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 )
 
-type runScriptStep struct {
+type RunScriptStep struct {
 	BuildContext string
 	Path         string
 	Env          string
 }
 
-func (s *runScriptStep) validate() error {
+func (s *RunScriptStep) validate() error {
 	if s.BuildContext == "" {
 		return errors.New("invalid args: BuildContext is required in RunScript")
 	}
@@ -40,7 +40,7 @@ func (s *runScriptStep) validate() error {
 	return nil
 }
 
-func (s *runScriptStep) run(runState *state) error {
+func (s *RunScriptStep) run(runState *state) error {
 	if err := s.validate(); err != nil {
 		return err
 	}
