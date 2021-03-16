@@ -19,10 +19,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 
 	"github.com/google/subcommands"
 )
@@ -51,6 +51,28 @@ func (s *SealOEM) Usage() string {
 // SetFlags implements subcommands.Command.SetFlags.
 func (s *SealOEM) SetFlags(f *flag.FlagSet) {}
 
+func (s *SealOEM) updateBuildConfig(configPath string) error {
+	var buildConfig config.Build
+	if err := config.LoadFromFile(configPath, &buildConfig); err != nil {
+		return err
+	}
+	buildConfig.SealOEM = true
+	buildConfig.ReclaimSDA3 = true
+	return config.SaveConfigToPath(configPath, &buildConfig)
+}
+
+func (s *SealOEM) updateProvConfig(configPath string) error {
+	var provConfig provisioner.Config
+	if err := config.LoadFromFile(configPath, &provConfig); err != nil {
+		return err
+	}
+	provConfig.BootDisk.ReclaimSDA3 = true
+	provConfig.Steps = append(provConfig.Steps, provisioner.StepConfig{
+		Type: "SealOEM",
+	})
+	return config.SaveConfigToPath(configPath, &provConfig)
+}
+
 // Execute implements subcommands.Command.Execute. It modifies the kernel command line
 // to enable dm-verity check on /dev/sda8 and disables update-engine (auto-update) and
 // usr-share-oem-mount systemd services.
@@ -60,19 +82,7 @@ func (s *SealOEM) Execute(_ context.Context, f *flag.FlagSet, args ...interface{
 		return subcommands.ExitUsageError
 	}
 	files := args[0].(*fs.Files)
-	configPath := files.BuildConfig
-	buildConfig := &config.Build{}
-	configFile, err := os.OpenFile(configPath, os.O_RDWR, 0666)
-	if err != nil {
-		return subcommands.ExitUsageError
-	}
-	defer configFile.Close()
-	if err := config.Load(configFile, buildConfig); err != nil {
-		return subcommands.ExitUsageError
-	}
-	buildConfig.SealOEM = true
-	buildConfig.ReclaimSDA3 = true
-	if err := config.SaveConfigToFile(configFile, buildConfig); err != nil {
+	if err := s.updateBuildConfig(files.BuildConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
@@ -86,6 +96,10 @@ func (s *SealOEM) Execute(_ context.Context, f *flag.FlagSet, args ...interface{
 	}
 	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_oem_mount.sh", ""); err != nil {
 		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
+		return subcommands.ExitFailure
+	}
+	if err := s.updateProvConfig(files.ProvConfig); err != nil {
+		log.Println(err)
 		return subcommands.ExitFailure
 	}
 	return subcommands.ExitSuccess
