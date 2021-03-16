@@ -27,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/gce"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/preloader"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/tools/partutil"
 
 	"github.com/google/subcommands"
@@ -136,10 +137,10 @@ func (f *FinishImageBuild) validate() error {
 	}
 }
 
-func (f *FinishImageBuild) loadConfigs(files *fs.Files) (*config.Image, *config.Build, *config.Image, error) {
+func (f *FinishImageBuild) loadConfigs(files *fs.Files) (*config.Image, *config.Build, *config.Image, *provisioner.Config, error) {
 	sourceImageConfig := &config.Image{}
 	if err := config.LoadFromFile(files.SourceImageConfig, sourceImageConfig); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	imageName := f.imageName
 	if f.imageSuffix != "" {
@@ -147,21 +148,35 @@ func (f *FinishImageBuild) loadConfigs(files *fs.Files) (*config.Image, *config.
 	}
 	buildConfig := &config.Build{}
 	if err := config.LoadFromFile(files.BuildConfig, buildConfig); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	buildConfig.Project = f.project
 	buildConfig.Zone = f.zone
 	buildConfig.DiskSize = f.diskSize
 	buildConfig.Timeout = f.timeout.String()
 	buildConfig.OEMSize = f.oemSize
+	provConfig := &provisioner.Config{}
+	if err := config.LoadFromFile(files.ProvConfig, provConfig); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	provConfig.BootDisk.OEMSize = f.oemSize
 	outputImageConfig := config.NewImage(imageName, f.imageProject)
 	outputImageConfig.Labels = f.labels.m
 	outputImageConfig.Licenses = f.licenses.l
 	outputImageConfig.Family = f.imageFamily
-	return sourceImageConfig, buildConfig, outputImageConfig, nil
+	return sourceImageConfig, buildConfig, outputImageConfig, provConfig, nil
 }
 
-func validateOEM(buildConfig *config.Build) error {
+func hasSealOEM(provConfig *provisioner.Config) bool {
+	for _, s := range provConfig.Steps {
+		if s.Type == "SealOEM" {
+			return true
+		}
+	}
+	return false
+}
+
+func validateOEM(buildConfig *config.Build, provConfig *provisioner.Config) error {
 	// The default size of a COS image (imgSize) is assumed to be 10GB.
 	const imgSize uint64 = 10
 	// If auto-update is disabled, 2046MB will be reclaimed.
@@ -193,6 +208,10 @@ func validateOEM(buildConfig *config.Build) error {
 		if err != nil {
 			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
 		}
+		oemSizeBytes, err = partutil.ConvertSizeToBytes(provConfig.BootDisk.OEMSize)
+		if err != nil {
+			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", provConfig.BootDisk.OEMSize, err)
+		}
 	} else {
 		// `seal-oem` will automatically disable auto-update and reclaim sda3.
 		if buildConfig.OEMSize == "" {
@@ -202,6 +221,8 @@ func validateOEM(buildConfig *config.Build) error {
 			// It will use space reclaimed from sda3.
 			buildConfig.OEMSize = "32M"
 			buildConfig.OEMFSSize4K = 4096
+			provConfig.BootDisk.OEMSize = "32M"
+			provConfig.BootDisk.OEMFSSize4K = 4096
 			return nil
 		}
 		// need extra space to seal the OEM partition.
@@ -215,7 +236,12 @@ func validateOEM(buildConfig *config.Build) error {
 		if err != nil {
 			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
 		}
+		oemSizeBytes, err = partutil.ConvertSizeToBytes(provConfig.BootDisk.OEMSize)
+		if err != nil {
+			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", provConfig.BootDisk.OEMSize, err)
+		}
 		buildConfig.OEMFSSize4K = oemSizeBytes >> 12
+		provConfig.BootDisk.OEMFSSize4K = oemSizeBytes >> 12
 		// double the oem size.
 		oemSizeBytes <<= 1
 	}
@@ -253,6 +279,7 @@ func validateOEM(buildConfig *config.Build) error {
 	// In those cases the disk size is not large enough without shrinking
 	// the OEM partition size by 1MB.
 	buildConfig.OEMSize = strconv.FormatUint((oemSizeBytes>>20)-1, 10) + "M"
+	provConfig.BootDisk.OEMSize = strconv.FormatUint((oemSizeBytes>>20)-1, 10) + "M"
 	return nil
 }
 
@@ -283,12 +310,12 @@ func (f *FinishImageBuild) Execute(ctx context.Context, flags *flag.FlagSet, arg
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
-	sourceImage, buildConfig, outputImage, err := f.loadConfigs(files)
+	sourceImage, buildConfig, outputImage, provConfig, err := f.loadConfigs(files)
 	if err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
-	if err := validateOEM(buildConfig); err != nil {
+	if err := validateOEM(buildConfig, provConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}

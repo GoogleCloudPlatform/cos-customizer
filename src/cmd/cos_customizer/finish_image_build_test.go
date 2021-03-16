@@ -101,6 +101,15 @@ func setupFinishBuildFiles() (string, *fs.Files, error) {
 		return "", nil, err
 	}
 	files.BuildConfig = buildConfigFile.Name()
+	files.ProvConfig, err = createTempFile(tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
+	if err := ioutil.WriteFile(files.ProvConfig, []byte("{}"), 0644); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
 	sourceImageFile, err := ioutil.TempFile(tmpDir, "")
 	if err != nil {
 		os.RemoveAll(tmpDir)
