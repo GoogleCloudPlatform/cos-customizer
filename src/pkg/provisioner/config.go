@@ -19,6 +19,11 @@ import (
 	"fmt"
 )
 
+type StepConfig struct {
+	Type string
+	Args json.RawMessage
+}
+
 // Config defines a provisioning flow.
 type Config struct {
 	// BuildContexts identifies the build contexts that should be used during
@@ -64,10 +69,7 @@ type Config struct {
 	//
 	// Type: SealOEM
 	// Args: This step takes no arguments.
-	Steps []struct {
-		Type string
-		Args json.RawMessage
-	}
+	Steps []StepConfig
 }
 
 type step interface {
@@ -78,7 +80,7 @@ func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 	switch stepType {
 	case "RunScript":
 		var s step
-		s = &runScriptStep{}
+		s = &RunScriptStep{}
 		if err := json.Unmarshal(stepArgs, s); err != nil {
 			return nil, err
 		}

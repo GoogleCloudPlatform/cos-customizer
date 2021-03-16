@@ -16,7 +16,6 @@ package provisioner
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -82,10 +81,7 @@ func TestRunInvalidArgs(t *testing.T) {
 		{
 			name: "RunScript",
 			config: Config{
-				Steps: []struct {
-					Type string
-					Args json.RawMessage
-				}{
+				Steps: []StepConfig{
 					{
 						Type: "RunScript",
 						Args: []byte("{}"),
@@ -148,10 +144,7 @@ func TestRunFailure(t *testing.T) {
 				BuildContexts: map[string]string{
 					"bc": "gs://test/test.tar",
 				},
-				Steps: []struct {
-					Type string
-					Args json.RawMessage
-				}{
+				Steps: []StepConfig{
 					{
 						Type: "RunScript",
 						Args: []byte(`{"BuildContext": "bc", "Path": "run_env.sh"}`),
@@ -225,10 +218,7 @@ func TestRunSuccess(t *testing.T) {
 				BuildContexts: map[string]string{
 					"bc": "gs://test/test.tar",
 				},
-				Steps: []struct {
-					Type string
-					Args json.RawMessage
-				}{
+				Steps: []StepConfig{
 					{
 						Type: "RunScript",
 						Args: []byte(`{"BuildContext": "bc", "Path": "run.sh"}`),

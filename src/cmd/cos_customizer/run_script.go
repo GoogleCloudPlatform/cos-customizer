@@ -16,14 +16,19 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 
 	"github.com/google/subcommands"
@@ -87,6 +92,18 @@ func createEnvFile(prefix string, files *fs.Files, env map[string]string) (strin
 	return filepath.Base(envFile.Name()), nil
 }
 
+// createEnvString creates an environment variable string used by the
+// provisioner tool. The format is the same as the format used by exec.Command.
+// Elements are sorted for predictable output.
+func createEnvString(m map[string]string) string {
+	var elems []string
+	for k, v := range m {
+		elems = append(elems, k+"="+v)
+	}
+	sort.Strings(elems)
+	return strings.Join(elems, ",")
+}
+
 // Execute implements subcommands.Command.Execute. It configures the current image build process to
 // customize the result image with a shell script.
 func (r *RunScript) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
@@ -108,12 +125,36 @@ func (r *RunScript) Execute(_ context.Context, f *flag.FlagSet, args ...interfac
 		log.Printf("could not find script %s in build context", r.script)
 		return subcommands.ExitFailure
 	}
+	// Update state file
 	envFileName, err := createEnvFile("user_env_", files, r.env.m)
 	if err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
 	if err := fs.AppendStateFile(files.StateFile, fs.User, r.script, envFileName); err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	// Update provisioner config
+	var provConfig provisioner.Config
+	if err := config.LoadFromFile(files.ProvConfig, &provConfig); err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	buf, err := json.Marshal(&provisioner.RunScriptStep{
+		BuildContext: "user",
+		Path:         r.script,
+		Env:          createEnvString(r.env.m),
+	})
+	if err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	provConfig.Steps = append(provConfig.Steps, provisioner.StepConfig{
+		Type: "RunScript",
+		Args: json.RawMessage(buf),
+	})
+	if err := config.SaveConfigToPath(files.ProvConfig, &provConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
