@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -27,6 +28,7 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fakes"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 
 	"cloud.google.com/go/storage"
 	"github.com/google/go-cmp/cmp"
@@ -122,6 +124,15 @@ func setupInstallGPUFiles() (string, *fs.Files, error) {
 	}
 	files.StateFile, err = createTempFile(tmpDir)
 	if err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
+	files.ProvConfig, err = createTempFile(tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
+	if err := ioutil.WriteFile(files.ProvConfig, []byte("{}"), 0644); err != nil {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
 	}
@@ -279,6 +290,42 @@ func TestInstallGPUStateFile(t *testing.T) {
 	want := []byte("builtin\tinstall_gpu.sh\t\n")
 	if !bytes.Equal(got, want) {
 		t.Errorf("install-gpu(_); state file; got %s, want %s", string(got), string(want))
+	}
+}
+
+func TestInstallGPUProvisionerConfig(t *testing.T) {
+	tmpDir, files, err := setupInstallGPUFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	gcs := fakes.GCSForTest(t)
+	defer gcs.Close()
+	if _, err := executeInstallGPU(context.Background(), files, gcs.Client, "-version=390.46"); err != nil {
+		t.Fatal(err)
+	}
+	want := provisioner.Config{
+		Steps: []provisioner.StepConfig{
+			{
+				Type: "InstallGPU",
+				Args: mustMarshalJSON(t, &provisioner.InstallGPUStep{
+					NvidiaDriverVersion:      "390.46",
+					NvidiaInstallDirHost:     "/var/lib/nvidia",
+					NvidiaInstallerContainer: installerContainer,
+				}),
+			},
+		},
+	}
+	var got provisioner.Config
+	data, err := ioutil.ReadFile(files.ProvConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff(got, want); diff != "" {
+		t.Errorf("install-gpu(-version=390.46); provisioner config mismatch; diff (-got, +want): %s", diff)
 	}
 }
 

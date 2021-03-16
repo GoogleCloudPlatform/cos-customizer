@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 
 	"cloud.google.com/go/storage"
@@ -36,7 +38,8 @@ import (
 )
 
 const (
-	gpuScript = "install_gpu.sh"
+	gpuScript          = "install_gpu.sh"
+	installerContainer = "gcr.io/cos-cloud/cos-gpu-installer:v20210204"
 )
 
 // TODO(b/121332360): Move most GPU functionality to cos-gpu-installer
@@ -113,7 +116,7 @@ func validDriverVersions(ctx context.Context, gcsClient *storage.Client) (map[st
 	return validDrivers, nil
 }
 
-func (i *InstallGPU) validate(ctx context.Context, gcsClient *storage.Client, files *fs.Files) error {
+func (i *InstallGPU) validate(ctx context.Context, gcsClient *storage.Client, files *fs.Files, provConfig *provisioner.Config) error {
 	isValidGPU := false
 	for _, g := range validGPUs {
 		if i.gpuType == g {
@@ -127,11 +130,18 @@ func (i *InstallGPU) validate(ctx context.Context, gcsClient *storage.Client, fi
 	if i.NvidiaDriverVersion == "" {
 		return fmt.Errorf("version must be set")
 	}
-	gpuAlreadyConf, err := fs.StateFileContains(files.StateFile, fs.Builtin, gpuScript)
+	stateFileAlreadyConf, err := fs.StateFileContains(files.StateFile, fs.Builtin, gpuScript)
 	if err != nil {
 		return err
 	}
-	if gpuAlreadyConf {
+	var provConfigAlreadyConf bool
+	for _, s := range provConfig.Steps {
+		if s.Type == "InstallGPU" {
+			provConfigAlreadyConf = true
+			break
+		}
+	}
+	if stateFileAlreadyConf || provConfigAlreadyConf {
 		return fmt.Errorf("install-gpu can only be invoked once in an image build process. Only one driver version can be installed on the image")
 	}
 	if strings.HasSuffix(i.NvidiaDriverVersion, ".run") {
@@ -219,6 +229,26 @@ func (i *InstallGPU) updateBuildConfig(configPath string) error {
 	return config.SaveConfigToFile(configFile, buildConfig)
 }
 
+func (i *InstallGPU) updateProvConfig(provConfig *provisioner.Config) error {
+	buf, err := json.Marshal(&provisioner.InstallGPUStep{
+		NvidiaDriverVersion:      i.NvidiaDriverVersion,
+		NvidiaDriverMD5Sum:       i.NvidiaDriverMd5sum,
+		NvidiaInstallDirHost:     i.NvidiaInstallDirHost,
+		NvidiaInstallerContainer: installerContainer,
+		// GCSDepsPrefix will be converted into a gs:// address by the preloader
+		// package.
+		GCSDepsPrefix: i.gpuDataDir,
+	})
+	if err != nil {
+		return err
+	}
+	provConfig.Steps = append(provConfig.Steps, provisioner.StepConfig{
+		Type: "InstallGPU",
+		Args: json.RawMessage(buf),
+	})
+	return nil
+}
+
 // Execute implements subcommands.Command.Execute. It configures the current image build process to
 // customize the result image with GPU drivers.
 func (i *InstallGPU) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
@@ -256,7 +286,12 @@ func (i *InstallGPU) Execute(ctx context.Context, f *flag.FlagSet, args ...inter
 		log.Printf("Valid driver versions are: %v\n", drivers)
 		return subcommands.ExitSuccess
 	}
-	if err := i.validate(ctx, gcsClient, files); err != nil {
+	var provConfig provisioner.Config
+	if err := config.LoadFromFile(files.ProvConfig, &provConfig); err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	if err := i.validate(ctx, gcsClient, files, &provConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
@@ -269,6 +304,14 @@ func (i *InstallGPU) Execute(ctx context.Context, f *flag.FlagSet, args ...inter
 		return subcommands.ExitFailure
 	}
 	if err := i.updateBuildConfig(files.BuildConfig); err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	if err := i.updateProvConfig(&provConfig); err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	if err := config.SaveConfigToPath(files.ProvConfig, &provConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}

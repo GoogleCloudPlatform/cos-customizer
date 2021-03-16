@@ -26,7 +26,7 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 )
 
-type installGPUStep struct {
+type InstallGPUStep struct {
 	NvidiaDriverVersion      string
 	NvidiaDriverMD5Sum       string
 	NvidiaInstallDirHost     string
@@ -34,7 +34,7 @@ type installGPUStep struct {
 	GCSDepsPrefix            string
 }
 
-func (s *installGPUStep) validate() error {
+func (s *InstallGPUStep) validate() error {
 	if s.NvidiaDriverVersion == "" {
 		return errors.New("invalid args: NvidiaDriverVersion is required in InstallGPU")
 	}
@@ -44,13 +44,13 @@ func (s *installGPUStep) validate() error {
 	return nil
 }
 
-func (s *installGPUStep) setDefaults() {
+func (s *InstallGPUStep) setDefaults() {
 	if s.NvidiaInstallDirHost == "" {
 		s.NvidiaInstallDirHost = "/var/lib/nvidia"
 	}
 }
 
-func (s *installGPUStep) installScript(path, driverVersion string) (err error) {
+func (s *InstallGPUStep) installScript(path, driverVersion string) (err error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (s *installGPUStep) installScript(path, driverVersion string) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := t.Execute(f, &installGPUStep{
+	if err := t.Execute(f, &InstallGPUStep{
 		NvidiaDriverVersion:      utils.QuoteForShell(driverVersion),
 		NvidiaDriverMD5Sum:       utils.QuoteForShell(s.NvidiaDriverMD5Sum),
 		NvidiaInstallDirHost:     utils.QuoteForShell(s.NvidiaInstallDirHost),
@@ -74,7 +74,7 @@ func (s *installGPUStep) installScript(path, driverVersion string) (err error) {
 	return nil
 }
 
-func (s *installGPUStep) runInstaller(path string) error {
+func (s *InstallGPUStep) runInstaller(path string) error {
 	var downloadURL string
 	if s.GCSDepsPrefix != "" {
 		downloadURL = "https://storage.googleapis.com/" + strings.TrimPrefix(s.GCSDepsPrefix, "gs://")
@@ -92,7 +92,7 @@ func (s *installGPUStep) runInstaller(path string) error {
 	return nil
 }
 
-func (s *installGPUStep) run(runState *state) error {
+func (s *InstallGPUStep) run(runState *state) error {
 	if err := s.validate(); err != nil {
 		return err
 	}
