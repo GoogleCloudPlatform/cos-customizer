@@ -68,7 +68,7 @@ func (d *DisableAutoUpdate) Execute(_ context.Context, f *flag.FlagSet, args ...
 		return subcommands.ExitUsageError
 	}
 	buildConfig.ReclaimSDA3 = true
-	if err := config.SaveBuildConfigToFile(configFile, buildConfig); err != nil {
+	if err := config.SaveConfigToFile(configFile, buildConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}

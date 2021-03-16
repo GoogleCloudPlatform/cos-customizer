@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -26,6 +27,7 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fakes"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 
 	"cloud.google.com/go/storage"
 	"github.com/google/subcommands"
@@ -59,6 +61,7 @@ func setupStartBuildFiles() (*fs.Files, string, error) {
 	files.BuildConfig = filepath.Join(tmpDir, "build_config")
 	files.SourceImageConfig = filepath.Join(tmpDir, "source_image")
 	files.StateFile = filepath.Join(tmpDir, "state_file")
+	files.ProvConfig = filepath.Join(tmpDir, "provisioner_config")
 	files.UserBuildContextArchive = filepath.Join(tmpDir, "user_archive")
 	files.VolatileBuiltinBuildContext, err = ioutil.TempDir(tmpDir, "")
 	if err != nil {
@@ -191,5 +194,30 @@ func TestStateFileCreated(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Errorf("state file should be empty. got: %s", string(got))
+	}
+}
+
+func TestProvisionerConfigCreated(t *testing.T) {
+	files, tmpDir, err := setupStartBuildFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+	gce, client := fakes.GCEForTest(t, "p")
+	defer gce.Close()
+	gce.Images.Items = []*compute.Image{{Name: "n"}}
+	if _, err := executeStartBuild(files, client, "-image-name=n", "-image-project=p", "-gcs-bucket=b", "-gcs-workdir=w"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(files.ProvConfig); os.IsNotExist(err) {
+		t.Errorf("provisioner config does not exist: should exist")
+	}
+	var got provisioner.Config
+	data, err := ioutil.ReadFile(files.ProvConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Errorf("cannot unmarshal provisioner config %q: got %v", string(data), err)
 	}
 }

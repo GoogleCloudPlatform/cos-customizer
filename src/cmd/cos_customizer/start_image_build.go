@@ -26,6 +26,8 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/gce"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 
 	"cloud.google.com/go/storage"
 	"github.com/google/subcommands"
@@ -155,7 +157,20 @@ func saveBuildConfig(gcsBucket, gcsWorkdir, dst string) error {
 		return err
 	}
 	defer outFile.Close()
-	return config.SaveBuildConfigToFile(outFile, buildConfig)
+	return config.SaveConfigToFile(outFile, buildConfig)
+}
+
+func saveProvConfig(dst string) (err error) {
+	provConfig := &provisioner.Config{}
+	if err := os.MkdirAll(filepath.Dir(dst), 0774); err != nil {
+		return err
+	}
+	outFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer utils.CheckClose(outFile, "error closing provisioner config", &err)
+	return config.SaveConfigToFile(outFile, provConfig)
 }
 
 // Execute implements subcommands.Command.Execute. It initializes persistent state for a new
@@ -196,6 +211,10 @@ func (s *StartImageBuild) Execute(ctx context.Context, f *flag.FlagSet, args ...
 		return subcommands.ExitFailure
 	}
 	if err := saveBuildConfig(s.gcsBucket, s.gcsWorkdir, files.BuildConfig); err != nil {
+		log.Println(err)
+		return subcommands.ExitFailure
+	}
+	if err := saveProvConfig(files.ProvConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}

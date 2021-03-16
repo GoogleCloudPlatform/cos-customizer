@@ -91,7 +91,7 @@ func setupFinishBuildFiles() (string, *fs.Files, error) {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
 	}
-	if err := config.SaveBuildConfigToFile(buildConfigFile, &config.Build{GCSBucket: "b", GCSDir: "d"}); err != nil {
+	if err := config.SaveConfigToFile(buildConfigFile, &config.Build{GCSBucket: "b", GCSDir: "d"}); err != nil {
 		buildConfigFile.Close()
 		os.RemoveAll(tmpDir)
 		return "", nil, err
