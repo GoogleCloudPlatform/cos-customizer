@@ -93,7 +93,7 @@ func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 		}
 		return s, nil
 	case "DisableAutoUpdate":
-		return &disableAutoUpdateStep{}, nil
+		return &DisableAutoUpdateStep{}, nil
 	case "SealOEM":
 		return &sealOEMStep{}, nil
 	default:

@@ -17,12 +17,11 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
-	"os"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 
 	"github.com/google/subcommands"
 )
@@ -50,6 +49,27 @@ func (d *DisableAutoUpdate) Usage() string {
 // SetFlags implements subcommands.Command.SetFlags.
 func (d *DisableAutoUpdate) SetFlags(f *flag.FlagSet) {}
 
+func (d *DisableAutoUpdate) updateBuildConfig(configPath string) error {
+	var buildConfig config.Build
+	if err := config.LoadFromFile(configPath, &buildConfig); err != nil {
+		return err
+	}
+	buildConfig.ReclaimSDA3 = true
+	return config.SaveConfigToPath(configPath, &buildConfig)
+}
+
+func (d *DisableAutoUpdate) updateProvConfig(configPath string) error {
+	var provConfig provisioner.Config
+	if err := config.LoadFromFile(configPath, &provConfig); err != nil {
+		return err
+	}
+	provConfig.BootDisk.ReclaimSDA3 = true
+	provConfig.Steps = append(provConfig.Steps, provisioner.StepConfig{
+		Type: "DisableAutoUpdate",
+	})
+	return config.SaveConfigToPath(configPath, &provConfig)
+}
+
 // Execute implements subcommands.Command.Execute. It disables the auto-update systemd service.
 func (d *DisableAutoUpdate) Execute(_ context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
 	if f.NArg() != 0 {
@@ -57,23 +77,16 @@ func (d *DisableAutoUpdate) Execute(_ context.Context, f *flag.FlagSet, args ...
 		return subcommands.ExitUsageError
 	}
 	files := args[0].(*fs.Files)
-	configPath := files.BuildConfig
-	buildConfig := &config.Build{}
-	configFile, err := os.OpenFile(configPath, os.O_RDWR, 0666)
-	if err != nil {
-		return subcommands.ExitUsageError
-	}
-	defer configFile.Close()
-	if err := config.Load(configFile, buildConfig); err != nil {
-		return subcommands.ExitUsageError
-	}
-	buildConfig.ReclaimSDA3 = true
-	if err := config.SaveConfigToFile(configFile, buildConfig); err != nil {
+	if err := d.updateBuildConfig(files.BuildConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
 	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_auto_update.sh", ""); err != nil {
-		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
+		log.Printf("cannot append state file, error msg:(%v)", err)
+		return subcommands.ExitFailure
+	}
+	if err := d.updateProvConfig(files.ProvConfig); err != nil {
+		log.Println(err)
 		return subcommands.ExitFailure
 	}
 	return subcommands.ExitSuccess
