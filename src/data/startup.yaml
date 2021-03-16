@@ -1,0 +1,94 @@
+#cloud-config
+#
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# This script runs customization scripts on a COS VM instance. It pulls
+# source from GCS and executes it.
+
+write_files:
+- path: /tmp/startup.sh
+  permissions: 0644
+  content: |
+    set -o errexit
+    set -o pipefail
+    set -o nounset
+
+    status() {
+      $@ 2>&1 | sed "s/^/BuildStatus: /"
+      return "${PIPESTATUS[0]}"
+    }
+
+    run_provisioner() {
+      status $@ && ret=$? || ret=$?
+      if [[ "${ret}" != 0 ]]; then
+        if [[ "${ret}" == 3 ]]; then
+          status echo "Rebooting..."
+          sleep 15 || :
+          reboot
+          while true; do sleep 1; done
+        fi
+        echo "BuildFailed: exiting due to errors"
+        # Under normal circumstances, Daisy will delete the VM once it sees
+        # "BuildFailed". But sometimes Daisy will die unexpectedly, so we want
+        # to shutdown ourselves to conserve resources. Let's give Daisy 5
+        # minutes to capture logs and delete the VM. If Daisy doesn't do that in
+        # 5 minutes, let's shut ourselves down.
+        sleep 300 || :
+        shutdown -h now
+        while true; do sleep 1; done
+      else
+        echo "BuildSucceeded: Build completed with no errors. Shutting down..."
+        # Once we shut down, the serial logs will be gone. We need to give Daisy
+        # time to capture the serial logs. Once Daisy is done capturing the
+        # serial logs, it will add the "DaisyEnd" metadata key. Let's wait for
+        # that key to appear (and shutdown anyway after 5 minutes).
+        /mnt/disks/cidata/metadata_watcher DaisyEnd
+        shutdown -h now
+        while true; do sleep 1; done
+      fi
+    }
+
+    main() {
+      status mkdir -p /mnt/disks/cidata
+      status mount /dev/disk/by-label/CIDATA /mnt/disks/cidata
+      if [[ ! -d /var/lib/.cos-customizer ]]; then
+        run_provisioner /mnt/disks/cidata/provisioner run --config=/mnt/disks/cidata/config.json
+      else
+        run_provisioner /mnt/disks/cidata/provisioner resume
+      fi
+    }
+
+    main
+- path: /etc/systemd/system/customizer.service
+  permissions: 0644
+  content: |
+    [Unit]
+    Description=Container-Optimized OS Customization Service
+    Wants=network-online.target gcr-online.target docker.service
+    After=network-online.target gcr-online.target docker.service
+
+    [Service]
+    Type=oneshot
+    RemainAfterExit=yes
+    User=root
+    ExecStart=/bin/bash /tmp/startup.sh
+    StandardOutput=tty
+    StandardError=tty
+    TTYPath=/dev/ttyS2
+
+runcmd:
+- echo "Starting startup service..."
+- systemctl daemon-reload
+- systemctl --no-block start customizer.service

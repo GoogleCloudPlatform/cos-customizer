@@ -18,10 +18,11 @@ package preloader
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path"
@@ -32,79 +33,14 @@ import (
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 
 	"cloud.google.com/go/storage"
-	yaml "gopkg.in/yaml.v2"
 )
 
-func buildCloudConfig(script io.Reader, service io.Reader) (string, error) {
-	scriptContent, err := ioutil.ReadAll(script)
-	if err != nil {
-		return "", err
-	}
-	serviceContent, err := ioutil.ReadAll(service)
-	if err != nil {
-		return "", err
-	}
-	cloudConfig := make(map[string]interface{})
-	scriptEntry := map[string]string{
-		"path":        "/tmp/startup.sh",
-		"permissions": "0644",
-		"content":     string(scriptContent),
-	}
-	serviceEntry := map[string]string{
-		"path":        "/etc/systemd/system/customizer.service",
-		"permissions": "0644",
-		"content":     string(serviceContent),
-	}
-	cloudConfig["write_files"] = []map[string]string{
-		scriptEntry,
-		serviceEntry,
-	}
-	cloudConfig["runcmd"] = []string{
-		"echo \"Starting startup service...\"",
-		"systemctl daemon-reload",
-		"systemctl --no-block start customizer.service",
-	}
-	cloudConfigYaml, err := yaml.Marshal(&cloudConfig)
-	if err != nil {
-		return "", err
-	}
-	return "#cloud-config\n\n" + string(cloudConfigYaml), nil
-}
-
-// writeCloudConfig composes a cloud-config from the given script and systemd service and writes the result
-// to a temporary file.
-func writeCloudConfig(scriptPath string, servicePath string) (string, error) {
-	scriptReader, err := os.Open(scriptPath)
-	if err != nil {
-		return "", err
-	}
-	defer scriptReader.Close()
-	serviceReader, err := os.Open(servicePath)
-	if err != nil {
-		return "", err
-	}
-	defer serviceReader.Close()
-	cloudConfig, err := buildCloudConfig(scriptReader, serviceReader)
-	if err != nil {
-		return "", err
-	}
-	w, err := ioutil.TempFile(fs.ScratchDir, "cloudconfig-")
-	if err != nil {
-		return "", err
-	}
-	if _, err := w.WriteString(cloudConfig); err != nil {
-		w.Close()
-		os.Remove(w.Name())
-		return "", err
-	}
-	if err := w.Close(); err != nil {
-		os.Remove(w.Name())
-		return "", err
-	}
-	return w.Name(), nil
-}
+//go:embed cidata.img
+var ciDataImg []byte
 
 // storeInGCS stores the given files in GCS using the given gcsManager.
 // Files to store are provided in a map where each key is a file on the local
@@ -131,9 +67,17 @@ func storeInGCS(ctx context.Context, gcs *gcsManager, files map[string]string) e
 	return nil
 }
 
+func needDiskResize(provConfig *provisioner.Config, buildSpec *config.Build) bool {
+	// We need to resize the disk during provisioning if:
+	// 1. The requested disk size is larger than default, and
+	// 2. Partitions need to be relocated, i.e. we are enlarging the OEM partition
+	// or reclaiming /dev/sda3
+	return buildSpec.DiskSize > 10 && (provConfig.BootDisk.OEMSize != "" || provConfig.BootDisk.ReclaimSDA3)
+}
+
 // writeDaisyWorkflow templates the given Daisy workflow and writes the result to a temporary file.
 // The given workflow should be the one at //data/build_image.wf.json.
-func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSpec *config.Build) (string, error) {
+func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSpec *config.Build, provConfig *provisioner.Config) (string, error) {
 	tmplContents, err := ioutil.ReadFile(inputWorkflow)
 	if err != nil {
 		return "", err
@@ -167,12 +111,26 @@ func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSp
 	// the default size. And the disk will not be resized.
 	// The place holder is needed because ResizeDisk API requires a larger size than the original disk.
 	var resizeDiskJSON string
-	if (buildSpec.OEMSize != "" || buildSpec.ReclaimSDA3) && buildSpec.DiskSize > 10 {
+	var waitResizeJSON string
+	if needDiskResize(provConfig, buildSpec) {
 		// actual disk size
 		resizeDiskJSON = fmt.Sprintf(`"ResizeDisks": [{"Name": "boot-disk","SizeGb": "%d"}]`, buildSpec.DiskSize)
+		waitResizeJSON = `
+      "WaitForInstancesSignal": [
+        {
+          "Name": "preload-vm",
+          "Interval": "10s",
+          "SerialOutput": {
+            "Port": 3,
+            "SuccessMatch": "waiting for the boot disk size to change",
+            "FailureMatch": "BuildFailed:"
+          }
+        }
+      ]`
 	} else {
 		// placeholder
-		resizeDiskJSON = `"WaitForInstancesSignal": [{"Name": "preload-vm","Interval": "2s","SerialOutput": {"Port": 3,"SuccessMatch": "BuildStatus:"}}]`
+		resizeDiskJSON = `"WaitForInstancesSignal": [{"Name": "preload-vm","Interval": "10s","SerialOutput": {"Port": 3,"SuccessMatch": "BuildStatus:"}}]`
+		waitResizeJSON = `"WaitForInstancesSignal": [{"Name": "preload-vm","Interval": "10s","SerialOutput": {"Port": 3,"SuccessMatch": "BuildStatus:"}}]`
 	}
 	tmpl, err := template.New("workflow").Parse(string(tmplContents))
 	if err != nil {
@@ -187,11 +145,13 @@ func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSp
 		Accelerators string
 		Licenses     string
 		ResizeDisks  string
+		WaitResize   string
 	}{
 		string(labelsJSON),
 		string(acceleratorsJSON),
 		string(licensesJSON),
 		resizeDiskJSON,
+		waitResizeJSON,
 	}); err != nil {
 		w.Close()
 		os.Remove(w.Name())
@@ -202,6 +162,74 @@ func writeDaisyWorkflow(inputWorkflow string, outputImage *config.Image, buildSp
 		return "", err
 	}
 	return w.Name(), nil
+}
+
+func writeCIDataImage(files *fs.Files) (path string, err error) {
+	img, err := ioutil.TempFile(fs.ScratchDir, "cidata-")
+	if err != nil {
+		return "", err
+	}
+	_, writeErr := img.Write(ciDataImg)
+	closeErr := img.Close()
+	if writeErr != nil {
+		return "", writeErr
+	}
+	if closeErr != nil {
+		return "", closeErr
+	}
+	if err := utils.RunCommand([]string{"mcopy", "-i", img.Name(), files.ProvConfig, "::/config.json"}, "", nil); err != nil {
+		return "", err
+	}
+	out, err := ioutil.TempFile(fs.ScratchDir, "cidata-tar-")
+	if err != nil {
+		return "", err
+	}
+	if err := out.Close(); err != nil {
+		return "", err
+	}
+	// tar with the "z" option requires a shell to be installed in the container.
+	// To avoid the shell dependency, gzip the tar ourselves.
+	if err := utils.RunCommand([]string{
+		"tar",
+		"cf", out.Name(),
+		"--transform", fmt.Sprintf("s|%s|disk.raw|g", strings.TrimLeft(img.Name(), "/")),
+		img.Name(),
+	}, "", nil); err != nil {
+		return "", err
+	}
+	if err := fs.GzipFile(out.Name(), out.Name()+".gz"); err != nil {
+		return "", err
+	}
+	return out.Name() + ".gz", err
+}
+
+func updateProvConfig(provConfig *provisioner.Config, buildSpec *config.Build, buildContexts map[string]string, gcs *gcsManager, files *fs.Files) error {
+	if needDiskResize(provConfig, buildSpec) {
+		provConfig.BootDisk.WaitForDiskResize = true
+	}
+	provConfig.BuildContexts = buildContexts
+	for idx := range provConfig.Steps {
+		if provConfig.Steps[idx].Type == "InstallGPU" {
+			var step provisioner.InstallGPUStep
+			if err := json.Unmarshal(provConfig.Steps[idx].Args, &step); err != nil {
+				return err
+			}
+			if step.GCSDepsPrefix != "" {
+				step.GCSDepsPrefix = gcs.managedDirURL() + "/gcs_files"
+			}
+			buf, err := json.Marshal(&step)
+			if err != nil {
+				return err
+			}
+			provConfig.Steps[idx].Args = json.RawMessage(buf)
+		}
+	}
+	buf, err := json.Marshal(provConfig)
+	if err != nil {
+		return err
+	}
+	log.Printf("Using provisioner config: %s", string(buf))
+	return config.SaveConfigToPath(files.ProvConfig, provConfig)
 }
 
 func sanitize(output *config.Image) {
@@ -216,8 +244,11 @@ func sanitize(output *config.Image) {
 
 // daisyArgs computes the parameters to the cos-customizer Daisy workflow (//data/build_image.wf.json)
 // and uploads dependencies to GCS.
-func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *config.Image, output *config.Image, buildSpec *config.Build) ([]string, error) {
+func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *config.Image, output *config.Image, buildSpec *config.Build, provConfig *provisioner.Config) ([]string, error) {
 	sanitize(output)
+	buildContexts := map[string]string{
+		"user": gcs.managedDirURL() + "/" + filepath.Base(files.UserBuildContextArchive),
+	}
 	toUpload := map[string]string{
 		files.UserBuildContextArchive:    filepath.Base(files.UserBuildContextArchive),
 		files.BuiltinBuildContextArchive: filepath.Base(files.BuiltinBuildContextArchive),
@@ -229,19 +260,19 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 	if err := storeInGCS(ctx, gcs, toUpload); err != nil {
 		return nil, err
 	}
-	daisyWorkflow, err := writeDaisyWorkflow(files.DaisyWorkflow, output, buildSpec)
+	daisyWorkflow, err := writeDaisyWorkflow(files.DaisyWorkflow, output, buildSpec, provConfig)
 	if err != nil {
 		return nil, err
 	}
-	cloudConfigFile, err := writeCloudConfig(files.StartupScript, files.SystemdService)
+	if err := updateProvConfig(provConfig, buildSpec, buildContexts, gcs, files); err != nil {
+		return nil, err
+	}
+	ciDataFile, err := writeCIDataImage(files)
 	if err != nil {
 		return nil, err
 	}
 	var args []string
-	if buildSpec.OEMSize != "" {
-		args = append(args, "-var:oem_size", buildSpec.OEMSize)
-		args = append(args, "-var:oem_fs_size_4k", strconv.FormatUint(buildSpec.OEMFSSize4K, 10))
-	} else if buildSpec.DiskSize > 10 && !buildSpec.ReclaimSDA3 {
+	if provConfig.BootDisk.OEMSize == "" && buildSpec.DiskSize > 10 && !provConfig.BootDisk.ReclaimSDA3 {
 		// If the oem-size is set, or need to reclaim sda3,
 		// create the disk with default size,
 		// and then resize the disk in the template step "resize-disk".
@@ -263,20 +294,10 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 		output.Name,
 		"-var:output_image_project",
 		output.Project,
-		"-var:user_build_context",
-		gcs.url(filepath.Base(files.UserBuildContextArchive)),
-		"-var:builtin_build_context",
-		gcs.url(filepath.Base(files.BuiltinBuildContextArchive)),
-		"-var:state_file",
-		gcs.url(filepath.Base(files.StateFile)),
-		"-var:gcs_files",
-		gcs.url("gcs_files"),
-		"-var:cloud_config",
-		cloudConfigFile,
+		"-var:cidata_img",
+		ciDataFile,
 		"-var:host_maintenance",
 		hostMaintenance,
-		"-var:reclaim_sda3",
-		strconv.FormatBool(buildSpec.ReclaimSDA3),
 		"-gcs_path",
 		gcs.managedDirURL(),
 		"-project",
@@ -285,6 +306,7 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 		buildSpec.Zone,
 		"-default_timeout",
 		buildSpec.Timeout,
+		"-disable_gcs_logging",
 		daisyWorkflow,
 	)
 	return args, nil
@@ -292,10 +314,10 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 
 // BuildImage builds a customized image using Daisy.
 func BuildImage(ctx context.Context, gcsClient *storage.Client, files *fs.Files, input, output *config.Image,
-	buildSpec *config.Build) error {
+	buildSpec *config.Build, provConfig *provisioner.Config) error {
 	gcs := &gcsManager{gcsClient, buildSpec.GCSBucket, buildSpec.GCSDir}
 	defer gcs.cleanup(ctx)
-	args, err := daisyArgs(ctx, gcs, files, input, output, buildSpec)
+	args, err := daisyArgs(ctx, gcs, files, input, output, buildSpec, provConfig)
 	if err != nil {
 		return err
 	}

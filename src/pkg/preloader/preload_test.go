@@ -16,20 +16,20 @@ package preloader
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fakes"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
 
 	"github.com/google/go-cmp/cmp"
 	compute "google.golang.org/api/compute/v1"
-	yaml "gopkg.in/yaml.v2"
 )
 
 func createTempFile(dir string) (string, error) {
@@ -60,6 +60,11 @@ func setupFiles() (string, *fs.Files, error) {
 		return "", nil, err
 	}
 	files.StateFile, err = createTempFile(tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
+	files.ProvConfig, err = createTempFile(tmpDir)
 	if err != nil {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
@@ -134,7 +139,7 @@ func TestDaisyArgsGCSUpload(t *testing.T) {
 			buildSpec := &config.Build{
 				GCSFiles: []string{filepath.Join(tmpDir, "test-file")},
 			}
-			if _, err := daisyArgs(context.Background(), gm, files, config.NewImage("", ""), config.NewImage("", ""), buildSpec); err != nil {
+			if _, err := daisyArgs(context.Background(), gm, files, config.NewImage("", ""), config.NewImage("", ""), buildSpec, &provisioner.Config{}); err != nil {
 				t.Fatalf("daisyArgs: %v", err)
 			}
 			got, ok := gcs.Objects[fmt.Sprintf("/bucket/cos-customizer/%s", input.object)]
@@ -157,103 +162,6 @@ func getDaisyVarValue(variable string, args []string) (string, bool) {
 	return "", false
 }
 
-func TestDaisyArgsCloudConfig(t *testing.T) {
-	var testData = []struct {
-		testName       string
-		startupScript  []byte
-		systemdService []byte
-		want           map[string]interface{}
-	}{
-		{
-			testName:       "Simple",
-			startupScript:  []byte("#!/bin/bash\n\necho \"hello\"\n"),
-			systemdService: []byte("[Unit]\nDescription=customizer service\n"),
-			want: map[string]interface{}{
-				"write_files": []interface{}{
-					map[interface{}]interface{}{
-						"path":        "/tmp/startup.sh",
-						"permissions": "0644",
-						"content":     "#!/bin/bash\n\necho \"hello\"\n",
-					},
-					map[interface{}]interface{}{
-						"path":        "/etc/systemd/system/customizer.service",
-						"permissions": "0644",
-						"content":     "[Unit]\nDescription=customizer service\n",
-					},
-				},
-				"runcmd": []interface{}{
-					"echo \"Starting startup service...\"",
-					"systemctl daemon-reload",
-					"systemctl --no-block start customizer.service",
-				},
-			},
-		},
-		{
-			testName: "Empty",
-			want: map[string]interface{}{
-				"write_files": []interface{}{
-					map[interface{}]interface{}{
-						"path":        "/tmp/startup.sh",
-						"permissions": "0644",
-						"content":     "",
-					},
-					map[interface{}]interface{}{
-						"path":        "/etc/systemd/system/customizer.service",
-						"permissions": "0644",
-						"content":     "",
-					},
-				},
-				"runcmd": []interface{}{
-					"echo \"Starting startup service...\"",
-					"systemctl daemon-reload",
-					"systemctl --no-block start customizer.service",
-				},
-			},
-		},
-	}
-	gcs := fakes.GCSForTest(t)
-	defer gcs.Close()
-	for _, input := range testData {
-		t.Run(input.testName, func(t *testing.T) {
-			tmpDir, files, err := setupFiles()
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.RemoveAll(tmpDir)
-			gcs.Objects = make(map[string][]byte)
-			gm := &gcsManager{gcsClient: gcs.Client, gcsBucket: "bucket"}
-			if err := ioutil.WriteFile(files.StartupScript, input.startupScript, 0744); err != nil {
-				t.Fatal(err)
-			}
-			if err := ioutil.WriteFile(files.SystemdService, input.systemdService, 0744); err != nil {
-				t.Fatal(err)
-			}
-			args, err := daisyArgs(context.Background(), gm, files, config.NewImage("", ""), config.NewImage("", ""), &config.Build{})
-			if err != nil {
-				t.Fatalf("daisyArgs: %v", err)
-			}
-			cloudConfig, ok := getDaisyVarValue("cloud_config", args)
-			if !ok {
-				t.Fatalf("daisyArgs: could not find \"cloud_config\" variable in args: %v", args)
-			}
-			data, err := ioutil.ReadFile(cloudConfig)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !strings.HasPrefix(string(data), "#cloud-config") {
-				t.Fatalf("daisyArgs: cloud config does not have \"#cloud-config\" prefix: %s", string(data))
-			}
-			got := make(map[string]interface{})
-			if err := yaml.Unmarshal(data, got); err != nil {
-				t.Fatal(err)
-			}
-			if diff := cmp.Diff(got, input.want); diff != "" {
-				t.Errorf("daisyArgs(_): cloudConfig mismatch: diff (-got +want)\n%s", diff)
-			}
-		})
-	}
-}
-
 func TestDaisyArgsWorkflowTemplate(t *testing.T) {
 	var testData = []struct {
 		testName    string
@@ -271,42 +179,42 @@ func TestDaisyArgsWorkflowTemplate(t *testing.T) {
 		},
 		{
 			testName:    "OneLicense",
-			outputImage: &config.Image{&compute.Image{Licenses: []string{"my-license"}}, ""},
+			outputImage: &config.Image{Image: &compute.Image{Licenses: []string{"my-license"}}, Project: ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
 			workflow:    []byte("{{.Licenses}}"),
 			want:        []byte("[\"my-license\"]"),
 		},
 		{
 			testName:    "TwoLicenses",
-			outputImage: &config.Image{&compute.Image{Licenses: []string{"license-1", "license-2"}}, ""},
+			outputImage: &config.Image{Image: &compute.Image{Licenses: []string{"license-1", "license-2"}}, Project: ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
 			workflow:    []byte("{{.Licenses}}"),
 			want:        []byte("[\"license-1\",\"license-2\"]"),
 		},
 		{
 			testName:    "EmptyStringLicense",
-			outputImage: &config.Image{&compute.Image{Licenses: []string{""}}, ""},
+			outputImage: &config.Image{Image: &compute.Image{Licenses: []string{""}}, Project: ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
 			workflow:    []byte("{{.Licenses}}"),
 			want:        []byte("null"),
 		},
 		{
 			testName:    "OneEmptyLicense",
-			outputImage: &config.Image{&compute.Image{Licenses: []string{"license-1", ""}}, ""},
+			outputImage: &config.Image{Image: &compute.Image{Licenses: []string{"license-1", ""}}, Project: ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
 			workflow:    []byte("{{.Licenses}}"),
 			want:        []byte("[\"license-1\"]"),
 		},
 		{
 			testName:    "URLLicense",
-			outputImage: &config.Image{&compute.Image{Licenses: []string{"https://www.googleapis.com/compute/v1/projects/my-proj/global/licenses/my-license"}}, ""},
+			outputImage: &config.Image{Image: &compute.Image{Licenses: []string{"https://www.googleapis.com/compute/v1/projects/my-proj/global/licenses/my-license"}}, Project: ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
 			workflow:    []byte("{{.Licenses}}"),
 			want:        []byte("[\"projects/my-proj/global/licenses/my-license\"]"),
 		},
 		{
 			testName:    "Labels",
-			outputImage: &config.Image{&compute.Image{Labels: map[string]string{"key": "value"}}, ""},
+			outputImage: &config.Image{Image: &compute.Image{Labels: map[string]string{"key": "value"}}, Project: ""},
 			buildConfig: &config.Build{GCSBucket: "bucket"},
 			workflow:    []byte("{{.Labels}}"),
 			want:        []byte("{\"key\":\"value\"}"),
@@ -333,7 +241,7 @@ func TestDaisyArgsWorkflowTemplate(t *testing.T) {
 			if err := ioutil.WriteFile(files.DaisyWorkflow, input.workflow, 0744); err != nil {
 				t.Fatal(err)
 			}
-			args, err := daisyArgs(context.Background(), gm, files, config.NewImage("", ""), input.outputImage, input.buildConfig)
+			args, err := daisyArgs(context.Background(), gm, files, config.NewImage("", ""), input.outputImage, input.buildConfig, &provisioner.Config{})
 			if err != nil {
 				t.Fatalf("daisyArgs: %v", err)
 			}
@@ -364,6 +272,15 @@ func isSubSlice(a, b []string) bool {
 	return false
 }
 
+func mustMarshalJSON(t *testing.T, v interface{}) []byte {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
 func TestDaisyArgs(t *testing.T) {
 	tmpDir, files, err := setupFiles()
 	if err != nil {
@@ -371,11 +288,15 @@ func TestDaisyArgs(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	var testData = []struct {
-		testName    string
-		inputImage  *config.Image
-		outputImage *config.Image
-		buildConfig *config.Build
-		want        []string
+		testName          string
+		inputImage        *config.Image
+		outputImage       *config.Image
+		buildConfig       *config.Build
+		provConfig        *provisioner.Config
+		want              []string
+		wantBuildContexts map[string]string
+		wantSteps         []provisioner.StepConfig
+		wantBootDisk      *provisioner.BootDiskConfig
 	}{
 		{
 			testName:    "GPU",
@@ -415,46 +336,16 @@ func TestDaisyArgs(t *testing.T) {
 		{
 			testName:    "OutputImageFamily",
 			inputImage:  config.NewImage("", ""),
-			outputImage: &config.Image{&compute.Image{Family: "family"}, ""},
+			outputImage: &config.Image{Image: &compute.Image{Family: "family"}, Project: ""},
 			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
 			want:        []string{"-var:output_image_family", "family"},
 		},
 		{
-			testName:    "UserBuildContext",
+			testName:    "CIData",
 			inputImage:  config.NewImage("", ""),
 			outputImage: config.NewImage("", ""),
 			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
-			want: []string{
-				"-var:user_build_context",
-				fmt.Sprintf("gs://bucket/dir/cos-customizer/%s", filepath.Base(files.UserBuildContextArchive)),
-			},
-		},
-		{
-			testName:    "BuiltinBuildContext",
-			inputImage:  config.NewImage("", ""),
-			outputImage: config.NewImage("", ""),
-			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
-			want: []string{
-				"-var:builtin_build_context",
-				fmt.Sprintf("gs://bucket/dir/cos-customizer/%s", filepath.Base(files.BuiltinBuildContextArchive)),
-			},
-		},
-		{
-			testName:    "StateFile",
-			inputImage:  config.NewImage("", ""),
-			outputImage: config.NewImage("", ""),
-			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
-			want: []string{
-				"-var:state_file",
-				fmt.Sprintf("gs://bucket/dir/cos-customizer/%s", filepath.Base(files.StateFile)),
-			},
-		},
-		{
-			testName:    "CloudConfig",
-			inputImage:  config.NewImage("", ""),
-			outputImage: config.NewImage("", ""),
-			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
-			want:        []string{"-var:cloud_config"},
+			want:        []string{"-var:cidata_img"},
 		},
 		{
 			testName:    "DiskSize",
@@ -492,11 +383,68 @@ func TestDaisyArgs(t *testing.T) {
 			want:        []string{"-default_timeout", "60m"},
 		},
 		{
-			testName:    "GCSFiles",
+			testName:    "ProvisionerConfigBuildContexts",
 			inputImage:  config.NewImage("", ""),
 			outputImage: config.NewImage("", ""),
 			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
-			want:        []string{"-var:gcs_files", "gs://bucket/dir/cos-customizer/gcs_files"},
+			provConfig:  &provisioner.Config{},
+			wantBuildContexts: map[string]string{
+				"user": fmt.Sprintf("gs://bucket/dir/cos-customizer/%s", filepath.Base(files.UserBuildContextArchive)),
+			},
+		},
+		{
+			testName:    "ProvisionerConfigSteps",
+			inputImage:  config.NewImage("", ""),
+			outputImage: config.NewImage("", ""),
+			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir"},
+			provConfig: &provisioner.Config{
+				Steps: []provisioner.StepConfig{
+					{
+						Type: "InstallGPU",
+						Args: mustMarshalJSON(t, &provisioner.InstallGPUStep{
+							GCSDepsPrefix: "gcs_deps",
+						}),
+					},
+				},
+			},
+			wantSteps: []provisioner.StepConfig{
+				{
+					Type: "InstallGPU",
+					Args: mustMarshalJSON(t, &provisioner.InstallGPUStep{
+						GCSDepsPrefix: "gs://bucket/dir/cos-customizer/gcs_files",
+					}),
+				},
+			},
+		},
+		{
+			testName:    "ProvisionerConfigBootDiskReclaimSDA3",
+			inputImage:  config.NewImage("", ""),
+			outputImage: config.NewImage("", ""),
+			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir", DiskSize: 20},
+			provConfig: &provisioner.Config{
+				BootDisk: provisioner.BootDiskConfig{
+					ReclaimSDA3: true,
+				},
+			},
+			wantBootDisk: &provisioner.BootDiskConfig{
+				ReclaimSDA3:       true,
+				WaitForDiskResize: true,
+			},
+		},
+		{
+			testName:    "ProvisionerConfigBootDiskOEMSize",
+			inputImage:  config.NewImage("", ""),
+			outputImage: config.NewImage("", ""),
+			buildConfig: &config.Build{GCSBucket: "bucket", GCSDir: "dir", DiskSize: 20},
+			provConfig: &provisioner.Config{
+				BootDisk: provisioner.BootDiskConfig{
+					OEMSize: "5G",
+				},
+			},
+			wantBootDisk: &provisioner.BootDiskConfig{
+				OEMSize:           "5G",
+				WaitForDiskResize: true,
+			},
 		},
 	}
 	gcs := fakes.GCSForTest(t)
@@ -505,13 +453,39 @@ func TestDaisyArgs(t *testing.T) {
 		t.Run(input.testName, func(t *testing.T) {
 			gcs.Objects = make(map[string][]byte)
 			gm := &gcsManager{gcs.Client, input.buildConfig.GCSBucket, input.buildConfig.GCSDir}
-			got, err := daisyArgs(context.Background(), gm, files, input.inputImage, input.outputImage, input.buildConfig)
+			if input.provConfig == nil {
+				input.provConfig = &provisioner.Config{}
+			}
+			funcCall := fmt.Sprintf("daisyArgs(_, _, _, %v, %v, %v, %v)", input.inputImage, input.outputImage, input.buildConfig, input.provConfig)
+			got, err := daisyArgs(context.Background(), gm, files, input.inputImage, input.outputImage, input.buildConfig, input.provConfig)
 			if err != nil {
 				t.Fatalf("daisyArgs: %v", err)
 			}
 			if !isSubSlice(input.want, got) {
-				t.Errorf("daisyArgs(_, _, _, %v, %v, %v) = %v; want subslice %v)", input.inputImage, input.outputImage, input.buildConfig,
-					got, input.want)
+				t.Errorf("%s = %v; want subslice %v)", funcCall, got, input.want)
+			}
+			var provConfig provisioner.Config
+			data, err := ioutil.ReadFile(files.ProvConfig)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(data, &provConfig); err != nil {
+				t.Fatal(err)
+			}
+			if input.wantBuildContexts != nil {
+				if diff := cmp.Diff(provConfig.BuildContexts, input.wantBuildContexts); diff != "" {
+					t.Errorf("%s: build contexts mismatch: diff (-got, +want): %s", funcCall, diff)
+				}
+			}
+			if input.wantSteps != nil {
+				if diff := cmp.Diff(provConfig.Steps, input.wantSteps); diff != "" {
+					t.Errorf("%s: steps mismatch: diff (-got, +want): %s", funcCall, diff)
+				}
+			}
+			if input.wantBootDisk != nil {
+				if diff := cmp.Diff(&provConfig.BootDisk, input.wantBootDisk); diff != "" {
+					t.Errorf("%s: steps mismatch: diff (-got, +want): %s", funcCall, diff)
+				}
 			}
 		})
 	}

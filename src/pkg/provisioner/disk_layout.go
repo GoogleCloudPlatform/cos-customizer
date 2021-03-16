@@ -119,7 +119,7 @@ After=tmp.mount
 Type=oneshot
 RemainAfterExit=true
 ExecStart=/bin/true
-ExecStop=/bin/bash -c '/tmp/handle_disk_layout.bin /dev/sda 1 8 "%s" "%t" 2>&1 | sed "s/^/BuildStatus: "'
+ExecStop=/bin/bash -c '/tmp/handle_disk_layout.bin /dev/sda 1 8 "%s" "%t" 2>&1 | sed "s/^/BuildStatus: /"'
 TimeoutStopSec=600
 StandardOutput=tty
 StandardError=tty
@@ -191,13 +191,13 @@ func relocatePartitions(deps Deps, runState *state) error {
 		return nil
 	}
 	device := filepath.Join(deps.RootDir, "dev", "sda")
-	sda3End, err := calcSDA3End(device)
-	if err != nil {
-		return err
-	}
 	if runState.data.Config.BootDisk.OEMSize != "" {
 		// Check if OEM partition is after sda3; if so, then we're done
 		oemStart, err := partutil.ReadPartitionStart(device, 8)
+		if err != nil {
+			return err
+		}
+		sda3End, err := calcSDA3End(device)
 		if err != nil {
 			return err
 		}
@@ -208,7 +208,7 @@ func relocatePartitions(deps Deps, runState *state) error {
 	} else {
 		// Check two things:
 		// 1. sda3 is minimal
-		// 2. Stateful partition is located after sda3
+		// 2. Stateful partition is located immediately after sda3
 		//
 		// If both are true, we are done.
 		minimal, err := partutil.IsPartitionMinimal(device, 3)
@@ -219,7 +219,10 @@ func relocatePartitions(deps Deps, runState *state) error {
 		if err != nil {
 			return err
 		}
-		if minimal && statefulStart == sda3End+1 {
+		sda3Start, err := partutil.ReadPartitionStart(device, 3)
+		// The stateful partition is relocated 4096 sectors after the start of sda3.
+		// See src/pkg/tools/handle_disk_layout.go for details.
+		if minimal && statefulStart == sda3Start+4096 {
 			log.Println("ReclaimSDA3 is set, sda3 appears to have been reclaimed. Partition relocation is complete")
 			return nil
 		}

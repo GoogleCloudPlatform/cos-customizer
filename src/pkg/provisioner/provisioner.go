@@ -51,7 +51,7 @@ func setup(rootDir, dockerCredentialGCR string, systemd *systemdClient) error {
 	if err := systemd.stop("update-engine.service"); err != nil {
 		return err
 	}
-	if err := mountFunc("", filepath.Join(rootDir, "root"), "tmpfs", 0, ""); err != nil {
+	if err := mountFunc("tmpfs", filepath.Join(rootDir, "root"), "tmpfs", 0, ""); err != nil {
 		return fmt.Errorf("error mounting tmpfs at /root: %v", err)
 	}
 	cmd := exec.Command(dockerCredentialGCR, "configure-docker")
