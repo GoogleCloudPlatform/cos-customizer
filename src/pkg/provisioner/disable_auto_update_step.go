@@ -20,9 +20,9 @@ import (
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/tools"
 )
 
-type disableAutoUpdateStep struct{}
+type DisableAutoUpdateStep struct{}
 
-func (s *disableAutoUpdateStep) run(runState *state) error {
+func (s *DisableAutoUpdateStep) run(runState *state) error {
 	log.Println("Disabling auto updates")
 	if err := tools.DisableSystemdService("update-engine.service"); err != nil {
 		return err
