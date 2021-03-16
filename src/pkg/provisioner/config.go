@@ -87,7 +87,7 @@ func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 		return s, nil
 	case "InstallGPU":
 		var s step
-		s = &installGPUStep{}
+		s = &InstallGPUStep{}
 		if err := json.Unmarshal(stepArgs, s); err != nil {
 			return nil, err
 		}
