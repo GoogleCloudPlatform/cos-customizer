@@ -39,6 +39,7 @@ const (
 	stateFile                  = "state_file"
 	sourceImageConfig          = "config/source_image"
 	buildConfig                = "config/build"
+	provConfig                 = "config/provisioner"
 
 	// Volatile files. These paths exist in the volatileDir at container start time.
 	// Changes to these files do not persist across build steps.
@@ -70,6 +71,9 @@ type Files struct {
 	SourceImageConfig string
 	// BuildConfig points to the image build process configuration.
 	BuildConfig string
+	// ProvConfig points to the provisioner configuration that runs on the preload
+	// VM.
+	ProvConfig string
 	// DaisyWorkflow points to the Daisy workflow to template and use for preloading.
 	DaisyWorkflow string
 	// StartupScript points to the startup script that needs to run on the preload VM.
@@ -88,18 +92,19 @@ type Files struct {
 func DefaultFiles(persistentDir string) *Files {
 	persistentDir = filepath.Join(os.Getenv("HOME"), persistentDir)
 	return &Files{
-		persistentDir,
-		filepath.Join(persistentDir, userBuildContextArchive),
-		filepath.Join(persistentDir, builtinBuildContextArchive),
-		filepath.Join(persistentDir, builtinBuildContext),
-		filepath.Join(persistentDir, stateFile),
-		filepath.Join(persistentDir, sourceImageConfig),
-		filepath.Join(persistentDir, buildConfig),
-		filepath.Join(volatileDir, daisyWorkflow),
-		filepath.Join(volatileDir, startupScript),
-		filepath.Join(volatileDir, systemdService),
-		filepath.Join(volatileDir, builtinBuildContext),
-		daisyBin,
+		persistentDir:               persistentDir,
+		UserBuildContextArchive:     filepath.Join(persistentDir, userBuildContextArchive),
+		BuiltinBuildContextArchive:  filepath.Join(persistentDir, builtinBuildContextArchive),
+		PersistBuiltinBuildContext:  filepath.Join(persistentDir, builtinBuildContext),
+		StateFile:                   filepath.Join(persistentDir, stateFile),
+		SourceImageConfig:           filepath.Join(persistentDir, sourceImageConfig),
+		BuildConfig:                 filepath.Join(persistentDir, buildConfig),
+		ProvConfig:                  filepath.Join(persistentDir, provConfig),
+		DaisyWorkflow:               filepath.Join(volatileDir, daisyWorkflow),
+		StartupScript:               filepath.Join(volatileDir, startupScript),
+		SystemdService:              filepath.Join(volatileDir, systemdService),
+		VolatileBuiltinBuildContext: filepath.Join(volatileDir, builtinBuildContext),
+		DaisyBin:                    daisyBin,
 	}
 }
 
