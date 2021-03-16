@@ -24,6 +24,13 @@ type StepConfig struct {
 	Args json.RawMessage
 }
 
+type BootDiskConfig struct {
+	OEMSize           string
+	OEMFSSize4K       uint64
+	ReclaimSDA3       bool
+	WaitForDiskResize bool
+}
+
 // Config defines a provisioning flow.
 type Config struct {
 	// BuildContexts identifies the build contexts that should be used during
@@ -33,12 +40,7 @@ type Config struct {
 	// gs:// addresses are supported.
 	BuildContexts map[string]string
 	// BootDisk defines how the boot disk should be configured.
-	BootDisk struct {
-		OEMSize           string
-		OEMFSSize4K       uint64
-		ReclaimSDA3       bool
-		WaitForDiskResize bool
-	}
+	BootDisk BootDiskConfig
 	// Steps are provisioning behaviors that can be run.
 	// The supported provisioning behaviors are:
 	//

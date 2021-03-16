@@ -21,6 +21,8 @@ load("@rules_pkg//:pkg.bzl", "pkg_tar", "pkg_deb")
 # gazelle:prefix github.com/GoogleCloudPlatform/cos-customizer
 gazelle(name = "gazelle")
 
+exports_files(glob(["src/data/**"]))
+
 genrule(
     name = "workspace_dir",
     outs = ["workspace"],

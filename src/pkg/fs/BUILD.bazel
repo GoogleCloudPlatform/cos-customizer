@@ -21,6 +21,10 @@ go_library(
         "copy.go",
         "file_system.go",
         "state_file.go",
+        "gzip.go",
+    ],
+    deps = [
+        "//src/pkg/utils:go_default_library",
     ],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs",
     visibility = ["//visibility:public"],
@@ -31,6 +35,7 @@ go_test(
     srcs = [
         "build_context_test.go",
         "state_file_test.go",
+        "gzip_test.go",
     ],
     data = glob(
         ["testdata/**"],

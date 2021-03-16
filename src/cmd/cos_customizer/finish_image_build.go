@@ -340,7 +340,7 @@ func (f *FinishImageBuild) Execute(ctx context.Context, flags *flag.FlagSet, arg
 		}
 		update(outputImage.Labels, image.Labels)
 	}
-	if err := preloader.BuildImage(ctx, gcsClient, files, sourceImage, outputImage, buildConfig); err != nil {
+	if err := preloader.BuildImage(ctx, gcsClient, files, sourceImage, outputImage, buildConfig, provConfig); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
 			log.Printf("command failed: %s. See stdout logs for details", err)
 			return subcommands.ExitFailure
