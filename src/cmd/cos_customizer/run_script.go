@@ -18,18 +18,13 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner"
-	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 
 	"github.com/google/subcommands"
 )
@@ -67,31 +62,6 @@ func (r *RunScript) SetFlags(f *flag.FlagSet) {
 	f.Var(r.env, "env", "Env vars to set before running the script.")
 }
 
-// createEnvFile creates an environment variable file from the given map. During preloading, this file
-// is sourced before the script associated with this step is run. The resulting file is stored in
-// the builtin build context to avoid collisions with user data.
-func createEnvFile(prefix string, files *fs.Files, env map[string]string) (string, error) {
-	if env == nil || len(env) == 0 {
-		return "", nil
-	}
-	envFile, err := ioutil.TempFile(files.PersistBuiltinBuildContext, prefix)
-	if err != nil {
-		return "", err
-	}
-	for k, v := range env {
-		if _, err := fmt.Fprintf(envFile, "export %s=%s\n", k, utils.QuoteForShell(v)); err != nil {
-			envFile.Close()
-			os.Remove(envFile.Name())
-			return "", err
-		}
-	}
-	if err := envFile.Close(); err != nil {
-		os.Remove(envFile.Name())
-		return "", err
-	}
-	return filepath.Base(envFile.Name()), nil
-}
-
 // createEnvString creates an environment variable string used by the
 // provisioner tool. The format is the same as the format used by exec.Command.
 // Elements are sorted for predictable output.
@@ -125,17 +95,6 @@ func (r *RunScript) Execute(_ context.Context, f *flag.FlagSet, args ...interfac
 		log.Printf("could not find script %s in build context", r.script)
 		return subcommands.ExitFailure
 	}
-	// Update state file
-	envFileName, err := createEnvFile("user_env_", files, r.env.m)
-	if err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	if err := fs.AppendStateFile(files.StateFile, fs.User, r.script, envFileName); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	// Update provisioner config
 	var provConfig provisioner.Config
 	if err := config.LoadFromFile(files.ProvConfig, &provConfig); err != nil {
 		log.Println(err)

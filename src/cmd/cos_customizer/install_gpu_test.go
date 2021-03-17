@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -103,30 +102,6 @@ func setupInstallGPUFiles() (string, *fs.Files, error) {
 		return "", nil, err
 	}
 	files := &fs.Files{}
-	files.PersistBuiltinBuildContext, err = ioutil.TempDir(tmpDir, "")
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	scriptFile, err := os.Create(filepath.Join(files.PersistBuiltinBuildContext, gpuScript))
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	if _, err := scriptFile.Write([]byte("{{.NvidiaDriverVersion}} {{.NvidiaDriverMd5sum}} {{.NvidiaInstallDirHost}} {{.SetCOSDownloadGCS}}")); err != nil {
-		scriptFile.Close()
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	if err := scriptFile.Close(); err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.StateFile, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
 	files.ProvConfig, err = createTempFile(tmpDir)
 	if err != nil {
 		os.RemoveAll(tmpDir)
@@ -152,27 +127,6 @@ func setupInstallGPUFiles() (string, *fs.Files, error) {
 	}
 	files.BuildConfig = buildConfigFile.Name()
 	return tmpDir, files, nil
-}
-
-func TestInstallGPUTemplate(t *testing.T) {
-	tmpDir, files, err := setupInstallGPUFiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-	gcs := fakes.GCSForTest(t)
-	defer gcs.Close()
-	if _, err := executeInstallGPU(context.Background(), files, gcs.Client, "-version=390.46", "-md5sum='md5'"); err != nil {
-		t.Fatal(err)
-	}
-	got, err := ioutil.ReadFile(filepath.Join(files.PersistBuiltinBuildContext, gpuScript))
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []byte("'390.46' ''\"'\"'md5'\"'\"'' '/var/lib/nvidia' ''")
-	if !bytes.Equal(got, want) {
-		t.Errorf("install-gpu(-version=390.46 -md5sum='md5'); script template; got %s, want %s", string(got), string(want))
-	}
 }
 
 func TestInstallGPUBuildConfig(t *testing.T) {
@@ -269,27 +223,6 @@ func TestInstallGPURunTwice(t *testing.T) {
 	}
 	if _, err = executeInstallGPU(context.Background(), files, gcs.Client, "-version=390.46"); err == nil {
 		t.Error("install-gpu(_); run twice; got nil, want error")
-	}
-}
-
-func TestInstallGPUStateFile(t *testing.T) {
-	tmpDir, files, err := setupInstallGPUFiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-	gcs := fakes.GCSForTest(t)
-	defer gcs.Close()
-	if _, err := executeInstallGPU(context.Background(), files, gcs.Client, "-version=390.46"); err != nil {
-		t.Fatal(err)
-	}
-	got, err := ioutil.ReadFile(files.StateFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []byte("builtin\tinstall_gpu.sh\t\n")
-	if !bytes.Equal(got, want) {
-		t.Errorf("install-gpu(_); state file; got %s, want %s", string(got), string(want))
 	}
 }
 

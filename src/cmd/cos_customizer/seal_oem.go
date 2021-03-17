@@ -17,7 +17,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
@@ -51,16 +50,6 @@ func (s *SealOEM) Usage() string {
 // SetFlags implements subcommands.Command.SetFlags.
 func (s *SealOEM) SetFlags(f *flag.FlagSet) {}
 
-func (s *SealOEM) updateBuildConfig(configPath string) error {
-	var buildConfig config.Build
-	if err := config.LoadFromFile(configPath, &buildConfig); err != nil {
-		return err
-	}
-	buildConfig.SealOEM = true
-	buildConfig.ReclaimSDA3 = true
-	return config.SaveConfigToPath(configPath, &buildConfig)
-}
-
 func (s *SealOEM) updateProvConfig(configPath string) error {
 	var provConfig provisioner.Config
 	if err := config.LoadFromFile(configPath, &provConfig); err != nil {
@@ -82,22 +71,6 @@ func (s *SealOEM) Execute(_ context.Context, f *flag.FlagSet, args ...interface{
 		return subcommands.ExitUsageError
 	}
 	files := args[0].(*fs.Files)
-	if err := s.updateBuildConfig(files.BuildConfig); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "seal_oem.sh", ""); err != nil {
-		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
-		return subcommands.ExitFailure
-	}
-	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_auto_update.sh", ""); err != nil {
-		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
-		return subcommands.ExitFailure
-	}
-	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_oem_mount.sh", ""); err != nil {
-		log.Println(fmt.Errorf("cannot append state file, error msg:(%v)", err))
-		return subcommands.ExitFailure
-	}
 	if err := s.updateProvConfig(files.ProvConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure

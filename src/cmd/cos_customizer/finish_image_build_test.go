@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/config"
@@ -55,32 +54,6 @@ func setupFinishBuildFiles() (string, *fs.Files, error) {
 		return "", nil, err
 	}
 	files := &fs.Files{}
-	files.PersistBuiltinBuildContext, err = ioutil.TempDir(tmpDir, "")
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.BuiltinBuildContextArchive = filepath.Join(tmpDir, "builtin_archive")
-	files.UserBuildContextArchive, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.StateFile, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.StartupScript, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.SystemdService, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
 	files.DaisyWorkflow, err = createTempFile(tmpDir)
 	if err != nil {
 		os.RemoveAll(tmpDir)

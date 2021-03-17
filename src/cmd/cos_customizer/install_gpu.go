@@ -130,18 +130,14 @@ func (i *InstallGPU) validate(ctx context.Context, gcsClient *storage.Client, fi
 	if i.NvidiaDriverVersion == "" {
 		return fmt.Errorf("version must be set")
 	}
-	stateFileAlreadyConf, err := fs.StateFileContains(files.StateFile, fs.Builtin, gpuScript)
-	if err != nil {
-		return err
-	}
-	var provConfigAlreadyConf bool
+	var gpuAlreadyConf bool
 	for _, s := range provConfig.Steps {
 		if s.Type == "InstallGPU" {
-			provConfigAlreadyConf = true
+			gpuAlreadyConf = true
 			break
 		}
 	}
-	if stateFileAlreadyConf || provConfigAlreadyConf {
+	if gpuAlreadyConf {
 		return fmt.Errorf("install-gpu can only be invoked once in an image build process. Only one driver version can be installed on the image")
 	}
 	if strings.HasSuffix(i.NvidiaDriverVersion, ".run") {
@@ -292,14 +288,6 @@ func (i *InstallGPU) Execute(ctx context.Context, f *flag.FlagSet, args ...inter
 		return subcommands.ExitFailure
 	}
 	if err := i.validate(ctx, gcsClient, files, &provConfig); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	if err := i.templateScript(filepath.Join(files.PersistBuiltinBuildContext, gpuScript)); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, gpuScript, ""); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}

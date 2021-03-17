@@ -100,12 +100,3 @@ func ArchiveHasObject(archive string, path string) (bool, error) {
 	}
 	return false, nil
 }
-
-// CreatePersistentBuiltinContext copies the contents of the builtin build context
-// to a persistent location.
-func CreatePersistentBuiltinContext(files *Files) error {
-	if err := os.MkdirAll(filepath.Dir(files.PersistBuiltinBuildContext), 0774); err != nil {
-		return err
-	}
-	return CopyRecursive(files.VolatileBuiltinBuildContext, files.PersistBuiltinBuildContext)
-}

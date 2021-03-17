@@ -198,14 +198,6 @@ func (s *StartImageBuild) Execute(ctx context.Context, f *flag.FlagSet, args ...
 		log.Println(err)
 		return subcommands.ExitFailure
 	}
-	if err := fs.CreateStateFile(files); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	if err := fs.CreatePersistentBuiltinContext(files); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
 	if err := saveImage(s.imageName, s.imageProject, files.SourceImageConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure

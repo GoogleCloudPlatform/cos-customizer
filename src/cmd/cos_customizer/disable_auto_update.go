@@ -49,15 +49,6 @@ func (d *DisableAutoUpdate) Usage() string {
 // SetFlags implements subcommands.Command.SetFlags.
 func (d *DisableAutoUpdate) SetFlags(f *flag.FlagSet) {}
 
-func (d *DisableAutoUpdate) updateBuildConfig(configPath string) error {
-	var buildConfig config.Build
-	if err := config.LoadFromFile(configPath, &buildConfig); err != nil {
-		return err
-	}
-	buildConfig.ReclaimSDA3 = true
-	return config.SaveConfigToPath(configPath, &buildConfig)
-}
-
 func (d *DisableAutoUpdate) updateProvConfig(configPath string) error {
 	var provConfig provisioner.Config
 	if err := config.LoadFromFile(configPath, &provConfig); err != nil {
@@ -77,14 +68,6 @@ func (d *DisableAutoUpdate) Execute(_ context.Context, f *flag.FlagSet, args ...
 		return subcommands.ExitUsageError
 	}
 	files := args[0].(*fs.Files)
-	if err := d.updateBuildConfig(files.BuildConfig); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	if err := fs.AppendStateFile(files.StateFile, fs.Builtin, "disable_auto_update.sh", ""); err != nil {
-		log.Printf("cannot append state file, error msg:(%v)", err)
-		return subcommands.ExitFailure
-	}
 	if err := d.updateProvConfig(files.ProvConfig); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
