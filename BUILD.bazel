@@ -35,27 +35,6 @@ genrule(
     cmd = "mkdir $@",
 )
 
-genrule(
-    name = "copy_handle_disk_layout_bin",
-    srcs = ["//src/cmd/handle_disk_layout:handle_disk_layout_bin"],
-    outs = ["handle_disk_layout.bin"],
-    cmd = "cp $< $@",
-)
-
-genrule(
-    name = "copy_seal_oem_bin",
-    srcs = ["//src/cmd/seal_oem:seal_oem_bin"],
-    outs = ["seal_oem.bin"],
-    cmd = "cp $< $@",
-)
-
-genrule(
-    name = "copy_disable_systemd_service_bin",
-    srcs = ["//src/cmd/disable_systemd_service:disable_systemd_service_bin"],
-    outs = ["disable_systemd_service.bin"],
-    cmd = "cp $< $@",
-)
-
 container_image(
     name = "veritysetup",
     repository = "veritysetup",
@@ -83,24 +62,6 @@ container_image(
     visibility = ["//visibility:public"],
 )
 
-genrule(
-    name = "veritysetup_img",
-    srcs = [":veritysetup.tar"],
-    outs = ["veritysetup.img"],
-    cmd = "cp $< $@",
-)
-
-pkg_tar(
-    name = "remap_builtin_build_ctx",
-    srcs = [
-        ":copy_seal_oem_bin",
-        ":copy_handle_disk_layout_bin",
-        ":copy_disable_systemd_service_bin",
-        ":veritysetup_img",
-    ],
-    package_dir = "data/builtin_build_context/",
-)
-
 pkg_tar(
     name = "data_tar",
     srcs = glob(["src/data/**"]),
@@ -126,7 +87,6 @@ container_image(
         ":tmp_dir",
     ],
     tars = [
-        ":remap_builtin_build_ctx",
         ":data_tar",
     ],
 )

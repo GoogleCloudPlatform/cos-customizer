@@ -250,9 +250,7 @@ func daisyArgs(ctx context.Context, gcs *gcsManager, files *fs.Files, input *con
 		"user": gcs.managedDirURL() + "/" + filepath.Base(files.UserBuildContextArchive),
 	}
 	toUpload := map[string]string{
-		files.UserBuildContextArchive:    filepath.Base(files.UserBuildContextArchive),
-		files.BuiltinBuildContextArchive: filepath.Base(files.BuiltinBuildContextArchive),
-		files.StateFile:                  filepath.Base(files.StateFile),
+		files.UserBuildContextArchive: filepath.Base(files.UserBuildContextArchive),
 	}
 	for _, gcsFile := range buildSpec.GCSFiles {
 		toUpload[gcsFile] = path.Join("gcs_files", filepath.Base(gcsFile))

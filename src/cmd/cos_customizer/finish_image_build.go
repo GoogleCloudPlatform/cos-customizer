@@ -154,7 +154,6 @@ func (f *FinishImageBuild) loadConfigs(files *fs.Files) (*config.Image, *config.
 	buildConfig.Zone = f.zone
 	buildConfig.DiskSize = f.diskSize
 	buildConfig.Timeout = f.timeout.String()
-	buildConfig.OEMSize = f.oemSize
 	provConfig := &provisioner.Config{}
 	if err := config.LoadFromFile(files.ProvConfig, provConfig); err != nil {
 		return nil, nil, nil, nil, err
@@ -191,22 +190,18 @@ func validateOEM(buildConfig *config.Build, provConfig *provisioner.Config) erro
 	var sizeError error
 	var oemSizeBytes uint64
 	var err error
-	if !buildConfig.SealOEM {
-		if buildConfig.OEMSize == "" {
+	if !hasSealOEM(provConfig) {
+		if provConfig.BootDisk.OEMSize == "" {
 			return nil
 		}
 		// no need to seal the OEM partition.
 		// If the OEM partition is to be extended, the following must be true:
 		// disk-size >= imgSize + oem-size - reclaimed-size.
-		if buildConfig.ReclaimSDA3 {
+		if provConfig.BootDisk.ReclaimSDA3 {
 			sizeError = fmt.Errorf("'disk-size-gb' must be at least 'oem-size'- reclaimed space "+
 				"(%dMB) + image size (%dGB)", reclaimedMB, imgSize)
 		} else {
 			sizeError = fmt.Errorf("'disk-size-gb' must be at least 'oem-size' + image size (%dGB)", imgSize)
-		}
-		oemSizeBytes, err = partutil.ConvertSizeToBytes(buildConfig.OEMSize)
-		if err != nil {
-			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
 		}
 		oemSizeBytes, err = partutil.ConvertSizeToBytes(provConfig.BootDisk.OEMSize)
 		if err != nil {
@@ -214,13 +209,11 @@ func validateOEM(buildConfig *config.Build, provConfig *provisioner.Config) erro
 		}
 	} else {
 		// `seal-oem` will automatically disable auto-update and reclaim sda3.
-		if buildConfig.OEMSize == "" {
+		if provConfig.BootDisk.OEMSize == "" {
 			// If need to seal OEM partition and the oem-size is not set,
 			// assume the OEM fs size is 16M as it is in a COS image,
 			// and the OEM partition size is doubled to 32M.
 			// It will use space reclaimed from sda3.
-			buildConfig.OEMSize = "32M"
-			buildConfig.OEMFSSize4K = 4096
 			provConfig.BootDisk.OEMSize = "32M"
 			provConfig.BootDisk.OEMFSSize4K = 4096
 			return nil
@@ -232,15 +225,10 @@ func validateOEM(buildConfig *config.Build, provConfig *provisioner.Config) erro
 		sizeError = fmt.Errorf("'disk-size-gb' must be at least 'oem-size' x 2 - reclaimed space "+
 			"(%dMB) + image size (%dGB)", reclaimedMB, imgSize)
 
-		oemSizeBytes, err = partutil.ConvertSizeToBytes(buildConfig.OEMSize)
-		if err != nil {
-			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
-		}
 		oemSizeBytes, err = partutil.ConvertSizeToBytes(provConfig.BootDisk.OEMSize)
 		if err != nil {
 			return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", provConfig.BootDisk.OEMSize, err)
 		}
-		buildConfig.OEMFSSize4K = oemSizeBytes >> 12
 		provConfig.BootDisk.OEMFSSize4K = oemSizeBytes >> 12
 		// double the oem size.
 		oemSizeBytes <<= 1
@@ -250,7 +238,7 @@ func validateOEM(buildConfig *config.Build, provConfig *provisioner.Config) erro
 	// If the auto-update is disabled, space in sda3 will be reclaimed and used.
 	// Extra space will be taken by the stateful partition.
 	oemSizeReclaimBytes := oemSizeBytes
-	if buildConfig.ReclaimSDA3 {
+	if provConfig.BootDisk.ReclaimSDA3 {
 		if oemSizeReclaimBytes <= reclaimedBytes {
 			oemSizeReclaimBytes = 0
 		} else {
@@ -259,7 +247,7 @@ func validateOEM(buildConfig *config.Build, provConfig *provisioner.Config) erro
 	}
 	oemSizeGB, err := partutil.ConvertSizeToGBRoundUp(strconv.FormatUint(oemSizeReclaimBytes, 10) + "B")
 	if err != nil {
-		return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", buildConfig.OEMSize, err)
+		return fmt.Errorf("invalid format of oem-size: %q, error msg:(%v)", provConfig.BootDisk.OEMSize, err)
 	}
 	//  if no disk-size-gb input, assume the default image size to be 10GB.
 	var diskSize uint64 = imgSize
@@ -278,7 +266,6 @@ func validateOEM(buildConfig *config.Build, provConfig *provisioner.Config) erro
 	// Or oem-size=1G, disk-size-gb=11, seal-oem set.
 	// In those cases the disk size is not large enough without shrinking
 	// the OEM partition size by 1MB.
-	buildConfig.OEMSize = strconv.FormatUint((oemSizeBytes>>20)-1, 10) + "M"
 	provConfig.BootDisk.OEMSize = strconv.FormatUint((oemSizeBytes>>20)-1, 10) + "M"
 	return nil
 }
@@ -316,10 +303,6 @@ func (f *FinishImageBuild) Execute(ctx context.Context, flags *flag.FlagSet, arg
 		return subcommands.ExitFailure
 	}
 	if err := validateOEM(buildConfig, provConfig); err != nil {
-		log.Println(err)
-		return subcommands.ExitFailure
-	}
-	if err := fs.CreateBuildContextArchive(files.PersistBuiltinBuildContext, files.BuiltinBuildContextArchive); err != nil {
 		log.Println(err)
 		return subcommands.ExitFailure
 	}

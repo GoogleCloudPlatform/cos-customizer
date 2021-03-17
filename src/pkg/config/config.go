@@ -62,18 +62,14 @@ func (i *Image) MarshalJSON() ([]byte, error) {
 
 // Build stores configuration data associated with the image build session.
 type Build struct {
-	GCSBucket   string
-	GCSDir      string
-	Project     string
-	Zone        string
-	DiskSize    int
-	OEMSize     string
-	OEMFSSize4K uint64
-	SealOEM     bool
-	ReclaimSDA3 bool
-	GPUType     string
-	Timeout     string
-	GCSFiles    []string
+	GCSBucket string
+	GCSDir    string
+	Project   string
+	Zone      string
+	DiskSize  int
+	GPUType   string
+	Timeout   string
+	GCSFiles  []string
 }
 
 // SaveConfigToFile clears the target config file and then saves the new config

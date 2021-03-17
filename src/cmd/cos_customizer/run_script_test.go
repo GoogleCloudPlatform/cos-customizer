@@ -21,7 +21,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs"
@@ -49,16 +48,6 @@ func setupRunScriptFiles() (string, *fs.Files, error) {
 		return "", nil, err
 	}
 	files := &fs.Files{}
-	files.PersistBuiltinBuildContext, err = ioutil.TempDir(tmpDir, "")
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.StateFile, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
 	files.ProvConfig, err = createTempFile(tmpDir)
 	if err != nil {
 		os.RemoveAll(tmpDir)
@@ -122,15 +111,11 @@ func TestRunScript(t *testing.T) {
 	var testData = []struct {
 		testName       string
 		flags          []string
-		wantPrefix     []byte
-		wantFiles      int
 		wantProvConfig provisioner.Config
 	}{
 		{
-			testName:   "NoEnv",
-			flags:      nil,
-			wantPrefix: []byte("user\tscript\t\n"),
-			wantFiles:  0,
+			testName: "NoEnv",
+			flags:    nil,
 			wantProvConfig: provisioner.Config{
 				Steps: []provisioner.StepConfig{
 					{
@@ -144,10 +129,8 @@ func TestRunScript(t *testing.T) {
 			},
 		},
 		{
-			testName:   "Env",
-			flags:      []string{"-env=HELLO1=world1,HELLO2=world2"},
-			wantPrefix: []byte("user\tscript\tuser_env"),
-			wantFiles:  1,
+			testName: "Env",
+			flags:    []string{"-env=HELLO1=world1,HELLO2=world2"},
 			wantProvConfig: provisioner.Config{
 				Steps: []provisioner.StepConfig{
 					{
@@ -175,15 +158,8 @@ func TestRunScript(t *testing.T) {
 			if _, err := executeRunScript(files, append(input.flags, "-script=script")...); err != nil {
 				t.Fatal(err)
 			}
-			got, err := ioutil.ReadFile(files.StateFile)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !strings.HasPrefix(string(got), string(input.wantPrefix)) {
-				t.Errorf("run-script(%v): state file: got %s, want prefix %s", input.flags, string(got), string(input.wantPrefix))
-			}
 			var provConfig provisioner.Config
-			got, err = ioutil.ReadFile(files.ProvConfig)
+			got, err := ioutil.ReadFile(files.ProvConfig)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -192,18 +168,6 @@ func TestRunScript(t *testing.T) {
 			}
 			if diff := cmp.Diff(provConfig, input.wantProvConfig); diff != "" {
 				t.Errorf("run-script(%v): provisioner config mismatch: diff (-got, +want): %s", input.flags, diff)
-			}
-			outputFiles, err := ioutil.ReadDir(files.PersistBuiltinBuildContext)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got := len(outputFiles); got != input.wantFiles {
-				t.Logf("unexpected number of output files; got %d, want %d", got, input.wantFiles)
-				t.Logf("output files:")
-				for _, file := range outputFiles {
-					t.Logf("%s", file.Name())
-				}
-				t.Fail()
 			}
 		})
 	}

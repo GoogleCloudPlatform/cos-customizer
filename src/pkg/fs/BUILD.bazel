@@ -20,7 +20,6 @@ go_library(
         "build_context.go",
         "copy.go",
         "file_system.go",
-        "state_file.go",
         "gzip.go",
     ],
     deps = [
@@ -34,7 +33,6 @@ go_test(
     name = "go_default_test",
     srcs = [
         "build_context_test.go",
-        "state_file_test.go",
         "gzip_test.go",
     ],
     data = glob(
