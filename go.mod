@@ -3,6 +3,7 @@ module github.com/GoogleCloudPlatform/cos-customizer
 go 1.16
 
 require (
+	cloud.google.com/go v0.75.0
 	cloud.google.com/go/storage v1.13.0
 	github.com/google/go-cmp v0.5.4
 	github.com/google/subcommands v1.2.0
