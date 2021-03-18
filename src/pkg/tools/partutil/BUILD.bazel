@@ -15,7 +15,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "partutil",
     srcs = [
         "extend_partition.go",
         "grub_utils.go",
@@ -28,7 +28,7 @@ go_library(
 )
 
 go_test(
-    name = "go_default_test",
+    name = "partutil_test",
     srcs = [
         "extend_partition_test.go",
         "handle_partition_table_test.go",
@@ -36,6 +36,6 @@ go_test(
         "move_partition_test.go",
     ],
     data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
-    deps = ["//src/pkg/tools/partutil/partutiltest:go_default_library"],
+    embed = [":partutil"],
+    deps = ["//src/pkg/tools/partutil/partutiltest"],
 )

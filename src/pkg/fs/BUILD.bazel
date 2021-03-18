@@ -15,22 +15,22 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "fs",
     srcs = [
         "build_context.go",
         "copy.go",
         "file_system.go",
         "gzip.go",
     ],
-    deps = [
-        "//src/pkg/utils:go_default_library",
-    ],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fs",
     visibility = ["//visibility:public"],
+    deps = [
+        "//src/pkg/utils",
+    ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "fs_test",
     srcs = [
         "build_context_test.go",
         "gzip_test.go",
@@ -39,5 +39,5 @@ go_test(
         ["testdata/**"],
         exclude_directories = 0,
     ),
-    embed = [":go_default_library"],
+    embed = [":fs"],
 )

@@ -15,7 +15,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "cos_customizer_lib",
     srcs = [
         "disable_auto_update.go",
         "finish_image_build.go",
@@ -29,24 +29,24 @@ go_library(
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/cmd/cos_customizer",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/pkg/config:go_default_library",
-        "//src/pkg/fs:go_default_library",
-        "//src/pkg/gce:go_default_library",
-        "//src/pkg/preloader:go_default_library",
-        "//src/pkg/tools/partutil:go_default_library",
-        "//src/pkg/utils:go_default_library",
-        "//src/pkg/provisioner:go_default_library",
-        "@com_github_google_subcommands//:go_default_library",
-        "@com_google_cloud_go_storage//:go_default_library",
-        "@org_golang_google_api//compute/v1:go_default_library",
-        "@org_golang_google_api//iterator:go_default_library",
-        "@org_golang_google_api//option:go_default_library",
-        "@org_golang_x_oauth2//google:go_default_library",
+        "//src/pkg/config",
+        "//src/pkg/fs",
+        "//src/pkg/gce",
+        "//src/pkg/preloader",
+        "//src/pkg/provisioner",
+        "//src/pkg/tools/partutil",
+        "//src/pkg/utils",
+        "@com_github_google_subcommands//:subcommands",
+        "@com_google_cloud_go_storage//:storage",
+        "@org_golang_google_api//compute/v1:compute",
+        "@org_golang_google_api//iterator",
+        "@org_golang_google_api//option",
+        "@org_golang_x_oauth2//google",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "cos_customizer_test",
     srcs = [
         "finish_image_build_test.go",
         "flag_vars_test.go",
@@ -54,20 +54,21 @@ go_test(
         "run_script_test.go",
         "start_image_build_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":cos_customizer_lib"],
     deps = [
-        "//src/pkg/config:go_default_library",
-        "//src/pkg/fakes:go_default_library",
-        "//src/pkg/fs:go_default_library",
-        "@com_github_google_go_cmp//cmp:go_default_library",
-        "@com_github_google_subcommands//:go_default_library",
-        "@com_google_cloud_go_storage//:go_default_library",
-        "@org_golang_google_api//compute/v1:go_default_library",
+        "//src/pkg/config",
+        "//src/pkg/fakes",
+        "//src/pkg/fs",
+        "//src/pkg/provisioner",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_subcommands//:subcommands",
+        "@com_google_cloud_go_storage//:storage",
+        "@org_golang_google_api//compute/v1:compute",
     ],
 )
 
 go_binary(
     name = "cos_customizer",
-    embed = [":go_default_library"],
+    embed = [":cos_customizer_lib"],
     visibility = ["//visibility:public"],
 )
