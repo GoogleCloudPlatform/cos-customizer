@@ -15,7 +15,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
-    name = "go_default_library",
+    name = "partutiltest",
     srcs = ["set_test_env.go"],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/tools/partutil/partutiltest",
     visibility = ["//visibility:public"],

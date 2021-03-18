@@ -15,24 +15,24 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "gce",
     srcs = ["gce.go"],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/gce",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/pkg/config:go_default_library",
-        "@org_golang_google_api//compute/v1:go_default_library",
-        "@org_golang_google_api//googleapi:go_default_library",
+        "//src/pkg/config",
+        "@org_golang_google_api//compute/v1:compute",
+        "@org_golang_google_api//googleapi",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "gce_test",
     srcs = ["gce_test.go"],
-    embed = [":go_default_library"],
+    embed = [":gce"],
     deps = [
-        "//src/pkg/config:go_default_library",
-        "//src/pkg/fakes:go_default_library",
-        "@org_golang_google_api//compute/v1:go_default_library",
+        "//src/pkg/config",
+        "//src/pkg/fakes",
+        "@org_golang_google_api//compute/v1:compute",
     ],
 )

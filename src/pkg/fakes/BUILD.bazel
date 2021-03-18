@@ -15,7 +15,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "fakes",
     testonly = True,
     srcs = [
         "gce.go",
@@ -25,26 +25,26 @@ go_library(
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/fakes",
     visibility = ["//visibility:public"],
     deps = [
-        "@com_google_cloud_go_storage//:go_default_library",
-        "@org_golang_google_api//compute/v1:go_default_library",
-        "@org_golang_google_api//googleapi:go_default_library",
-        "@org_golang_google_api//option:go_default_library",
+        "@com_google_cloud_go_storage//:storage",
+        "@org_golang_google_api//compute/v1:compute",
+        "@org_golang_google_api//googleapi",
+        "@org_golang_google_api//option",
     ],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "fakes_test",
     srcs = [
         "gce_test.go",
         "gcs_test.go",
     ],
-    embed = [":go_default_library"],
+    embed = [":fakes"],
     deps = [
-        "@com_github_google_go_cmp//cmp:go_default_library",
-        "@com_github_google_go_cmp//cmp/cmpopts:go_default_library",
-        "@com_google_cloud_go_storage//:go_default_library",
-        "@org_golang_google_api//compute/v1:go_default_library",
-        "@org_golang_google_api//googleapi:go_default_library",
-        "@org_golang_google_api//iterator:go_default_library",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@com_google_cloud_go_storage//:storage",
+        "@org_golang_google_api//compute/v1:compute",
+        "@org_golang_google_api//googleapi",
+        "@org_golang_google_api//iterator",
     ],
 )

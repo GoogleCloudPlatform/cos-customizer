@@ -16,7 +16,7 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@package_bundle//file:packages.bzl", "packages")
-load("@rules_pkg//:pkg.bzl", "pkg_tar", "pkg_deb")
+load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
 
 # gazelle:prefix github.com/GoogleCloudPlatform/cos-customizer
 gazelle(name = "gazelle")
@@ -37,7 +37,6 @@ genrule(
 
 container_image(
     name = "veritysetup",
-    repository = "veritysetup",
     debs = [
         packages["coreutils"],
         packages["tar"],
@@ -59,6 +58,7 @@ container_image(
         packages["libm17n-0"],
         packages["libgpg-error0"],
     ],
+    repository = "veritysetup",
     visibility = ["//visibility:public"],
 )
 
@@ -83,8 +83,8 @@ container_image(
         packages["mtools"],
     ],
     files = [
-        ":workspace_dir",
         ":tmp_dir",
+        ":workspace_dir",
     ],
     tars = [
         ":data_tar",
@@ -94,7 +94,7 @@ container_image(
 go_image(
     name = "cos_customizer",
     base = ":cos_customizer_base",
-    embed = ["//src/cmd/cos_customizer:go_default_library"],
+    embed = ["//src/cmd/cos_customizer:cos_customizer_lib"],
     goarch = "amd64",
     goos = "linux",
     pure = "on",

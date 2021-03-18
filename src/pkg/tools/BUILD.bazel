@@ -15,7 +15,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "go_default_library",
+    name = "tools",
     srcs = [
         "disable_systemd_service.go",
         "extend_oem_partition.go",
@@ -24,12 +24,12 @@ go_library(
     ],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/tools",
     visibility = ["//visibility:public"],
-    deps = ["//src/pkg/tools/partutil:go_default_library"],
+    deps = ["//src/pkg/tools/partutil"],
 )
 
 go_test(
-    name = "go_default_test",
+    name = "tools_test",
     srcs = ["handle_disk_layout_test.go"],
-    embed = [":go_default_library"],
-    deps = ["//src/pkg/tools/partutil/partutiltest:go_default_library"],
+    embed = [":tools"],
+    deps = ["//src/pkg/tools/partutil/partutiltest"],
 )
