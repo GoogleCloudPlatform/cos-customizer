@@ -39,7 +39,7 @@ import (
 
 const (
 	gpuScript          = "install_gpu.sh"
-	installerContainer = "gcr.io/cos-cloud/cos-gpu-installer:v20210204"
+	installerContainer = "gcr.io/cos-cloud/cos-gpu-installer:v20210319"
 )
 
 // TODO(b/121332360): Move most GPU functionality to cos-gpu-installer
