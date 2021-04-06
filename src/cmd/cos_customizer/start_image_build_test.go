@@ -57,17 +57,10 @@ func setupStartBuildFiles() (*fs.Files, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	files.PersistBuiltinBuildContext = filepath.Join(tmpDir, "persist_context")
 	files.BuildConfig = filepath.Join(tmpDir, "build_config")
 	files.SourceImageConfig = filepath.Join(tmpDir, "source_image")
-	files.StateFile = filepath.Join(tmpDir, "state_file")
 	files.ProvConfig = filepath.Join(tmpDir, "provisioner_config")
 	files.UserBuildContextArchive = filepath.Join(tmpDir, "user_archive")
-	files.VolatileBuiltinBuildContext, err = ioutil.TempDir(tmpDir, "")
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return nil, "", err
-	}
 	return files, tmpDir, nil
 }
 
@@ -169,31 +162,6 @@ func TestSourceImage(t *testing.T) {
 				t.Errorf("StartImageBuild.Execute(%s); source image project is %s, want cos-cloud", input.flag, got)
 			}
 		})
-	}
-}
-
-func TestStateFileCreated(t *testing.T) {
-	files, tmpDir, err := setupStartBuildFiles()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-	gce, client := fakes.GCEForTest(t, "p")
-	defer gce.Close()
-	gce.Images.Items = []*compute.Image{{Name: "n"}}
-	if _, err := executeStartBuild(files, client, "-image-name=n", "-image-project=p", "-gcs-bucket=b",
-		"-gcs-workdir=w"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(files.StateFile); os.IsNotExist(err) {
-		t.Errorf("state file should exist")
-	}
-	got, err := ioutil.ReadFile(files.StateFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(got) != 0 {
-		t.Errorf("state file should be empty. got: %s", string(got))
 	}
 }
 

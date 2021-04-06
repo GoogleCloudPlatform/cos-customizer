@@ -99,6 +99,11 @@ func setupFinishBuildFiles() (string, *fs.Files, error) {
 	}
 	files.SourceImageConfig = sourceImageFile.Name()
 	files.DaisyBin = "/bin/true"
+	files.UserBuildContextArchive, err = createTempFile(tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		return "", nil, err
+	}
 	return tmpDir, files, nil
 }
 
