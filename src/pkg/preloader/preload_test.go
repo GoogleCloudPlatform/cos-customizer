@@ -54,32 +54,12 @@ func setupFiles() (string, *fs.Files, error) {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
 	}
-	files.BuiltinBuildContextArchive, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.StateFile, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
 	files.ProvConfig, err = createTempFile(tmpDir)
 	if err != nil {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
 	}
 	files.DaisyWorkflow, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.StartupScript, err = createTempFile(tmpDir)
-	if err != nil {
-		os.RemoveAll(tmpDir)
-		return "", nil, err
-	}
-	files.SystemdService, err = createTempFile(tmpDir)
 	if err != nil {
 		os.RemoveAll(tmpDir)
 		return "", nil, err
@@ -107,18 +87,6 @@ func TestDaisyArgsGCSUpload(t *testing.T) {
 			file:     files.UserBuildContextArchive,
 			object:   filepath.Base(files.UserBuildContextArchive),
 			contents: []byte("abc"),
-		},
-		{
-			testName: "BuiltinBuildContextArchive",
-			file:     files.BuiltinBuildContextArchive,
-			object:   filepath.Base(files.BuiltinBuildContextArchive),
-			contents: []byte("def"),
-		},
-		{
-			testName: "StateFile",
-			file:     files.StateFile,
-			object:   filepath.Base(files.StateFile),
-			contents: []byte("ghi"),
 		},
 		{
 			testName: "ArbitraryFileUpload",
