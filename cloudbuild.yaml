@@ -13,9 +13,18 @@
 # limitations under the License.
 
 steps:
-- name: 'gcr.io/cloud-builders/bazel'
+- name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    cat <<EOF | docker build -t bazel -
+    FROM gcr.io/cloud-builders/bazel
+    RUN apt-get update && apt-get install -y mtools
+    EOF
+- name: 'bazel'
   args: ['test', '--spawn_strategy=standalone','--','...','-//src/pkg/tools/...']
-- name: 'gcr.io/cloud-builders/bazel'
+- name: 'bazel'
   args: ['run', '--spawn_strategy=standalone', ':cos_customizer', '--', '--norun']
 - name: 'gcr.io/cloud-builders/docker'
   args: ['tag', 'bazel:cos_customizer', 'gcr.io/${_OUTPUT_PROJECT}/cos-customizer:${TAG_NAME}']
