@@ -33,6 +33,13 @@ genrule(
     cmd = "cp $< $@",
 )
 
+genrule(
+    name = "docker_credential_gcr",
+    srcs = ["@com_github_googlecloudplatform_docker_credential_gcr//:docker-credential-gcr"],
+    outs = ["docker-credential-gcr"],
+    cmd = "cp $< $@",
+)
+
 go_library(
     name = "provisioner",
     srcs = [
@@ -50,6 +57,7 @@ go_library(
     embedsrcs = [
         ":handle_disk_layout.bin",
         ":veritysetup.img",
+        ":docker_credential_gcr",
     ],
     importpath = "github.com/GoogleCloudPlatform/cos-customizer/src/pkg/provisioner",
     visibility = ["//visibility:public"],

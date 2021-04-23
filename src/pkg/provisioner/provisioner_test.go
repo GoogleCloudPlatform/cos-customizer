@@ -50,6 +50,13 @@ func restoreMount() {
 	unmountFunc = unix.Unmount
 }
 
+func stubMountInfo(filePath, mountPoint string) error {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filePath, []byte(fmt.Sprintf("0 0 0 / %s ro\n", mountPoint)), 0644)
+}
+
 func TestStateExists(t *testing.T) {
 	ctx := context.Background()
 	dir, err := ioutil.TempDir("", "provisioner-test-")
@@ -102,13 +109,15 @@ func TestRunInvalidArgs(t *testing.T) {
 			defer os.RemoveAll(tempDir)
 			gcs := fakes.GCSForTest(t)
 			deps := Deps{
-				GCSClient:           gcs.Client,
-				TarCmd:              "tar",
-				SystemctlCmd:        "/bin/true",
-				RootDir:             tempDir,
-				DockerCredentialGCR: "/bin/true",
+				GCSClient:    gcs.Client,
+				TarCmd:       "tar",
+				SystemctlCmd: "/bin/true",
+				RootDir:      tempDir,
 			}
 			stateDir := filepath.Join(tempDir, "var", "lib", ".cos-customizer")
+			if err := stubMountInfo(filepath.Join(tempDir, "proc", "self", "mountinfo"), filepath.Join(stateDir, "bin")); err != nil {
+				t.Fatal(err)
+			}
 			funcCall := fmt.Sprintf("Run(ctx, %+v, %q, %+v)", deps, stateDir, test.config)
 			if err := Run(ctx, deps, stateDir, test.config); err == nil {
 				t.Fatalf("%s = nil; want invalid args", funcCall)
@@ -172,13 +181,15 @@ func TestRunFailure(t *testing.T) {
 				gcs.Objects[name] = data
 			}
 			deps := Deps{
-				GCSClient:           gcs.Client,
-				TarCmd:              "tar",
-				SystemctlCmd:        "/bin/true",
-				RootDir:             tempDir,
-				DockerCredentialGCR: "/bin/true",
+				GCSClient:    gcs.Client,
+				TarCmd:       "tar",
+				SystemctlCmd: "/bin/true",
+				RootDir:      tempDir,
 			}
 			stateDir := filepath.Join(tempDir, "var", "lib", ".cos-customizer")
+			if err := stubMountInfo(filepath.Join(tempDir, "proc", "self", "mountinfo"), filepath.Join(stateDir, "bin")); err != nil {
+				t.Fatal(err)
+			}
 			funcCall := fmt.Sprintf("Run(ctx, %+v, %q, %+v)", deps, stateDir, test.config)
 			if err := Run(ctx, deps, stateDir, test.config); err == nil {
 				t.Fatalf("%s = nil; want err", funcCall)
@@ -250,13 +261,15 @@ func TestRunSuccess(t *testing.T) {
 				gcs.Objects[name] = data
 			}
 			deps := Deps{
-				GCSClient:           gcs.Client,
-				TarCmd:              "tar",
-				SystemctlCmd:        "/bin/true",
-				RootDir:             tempDir,
-				DockerCredentialGCR: "/bin/true",
+				GCSClient:    gcs.Client,
+				TarCmd:       "tar",
+				SystemctlCmd: "/bin/true",
+				RootDir:      tempDir,
 			}
 			stateDir := filepath.Join(tempDir, "var", "lib", ".cos-customizer")
+			if err := stubMountInfo(filepath.Join(tempDir, "proc", "self", "mountinfo"), filepath.Join(stateDir, "bin")); err != nil {
+				t.Fatal(err)
+			}
 			funcCall := fmt.Sprintf("Run(ctx, %+v, %q, %+v)", deps, stateDir, test.config)
 			if err := Run(ctx, deps, stateDir, test.config); err != nil {
 				t.Fatalf("%s = %v; want nil", funcCall, err)

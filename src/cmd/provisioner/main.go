@@ -48,15 +48,14 @@ func main() {
 		os.Exit(int(subcommands.ExitFailure))
 	}
 	deps := provisioner.Deps{
-		GCSClient:           gcsClient,
-		TarCmd:              "tar",
-		SystemctlCmd:        "systemctl",
-		DockerCredentialGCR: "docker-credential-gcr",
-		RootdevCmd:          "rootdev",
-		CgptCmd:             "cgpt",
-		Resize2fsCmd:        "resize2fs",
-		E2fsckCmd:           "e2fsck",
-		RootDir:             "/",
+		GCSClient:    gcsClient,
+		TarCmd:       "tar",
+		SystemctlCmd: "systemctl",
+		RootdevCmd:   "rootdev",
+		CgptCmd:      "cgpt",
+		Resize2fsCmd: "resize2fs",
+		E2fsckCmd:    "e2fsck",
+		RootDir:      "/",
 	}
 	var exitCode int
 	ret := subcommands.Execute(ctx, deps, &exitCode)

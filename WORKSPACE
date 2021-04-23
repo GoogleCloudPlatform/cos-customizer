@@ -68,6 +68,13 @@ git_repository(
     shallow_since = "1591135967 -0700",
 )
 
+git_repository(
+    name = "com_github_googlecloudplatform_docker_credential_gcr",
+    commit = "6093d30b51d725877bc6971aa6700153c1a364f1",
+    remote = "https://github.com/GoogleCloudPlatform/docker-credential-gcr",
+    shallow_since = "1613169008 -0800",
+)
+
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
@@ -78,6 +85,11 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_to
 go_rules_dependencies()
 
 go_register_toolchains(version="1.16")
+
+load("//:deps.bzl", "go_mod_deps")
+
+# gazelle:repository_macro deps.bzl%go_mod_deps
+go_mod_deps()
 
 rules_pkg_dependencies()
 
@@ -169,11 +181,6 @@ dpkg_list(
         "@debian_stretch//file:Packages.json",
     ],
 )
-
-load("//:deps.bzl", "go_mod_deps")
-
-# gazelle:repository_macro deps.bzl%go_mod_deps
-go_mod_deps()
 
 load("@rules_foreign_cc//:workspace_definitions.bzl", "rules_foreign_cc_dependencies")
 rules_foreign_cc_dependencies()
