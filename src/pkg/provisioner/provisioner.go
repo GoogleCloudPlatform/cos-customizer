@@ -17,7 +17,9 @@
 package provisioner
 
 import (
+	"bufio"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -25,10 +27,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"cloud.google.com/go/storage"
 	"golang.org/x/sys/unix"
 )
+
+//go:embed docker-credential-gcr
+var dockerCredentialGCR []byte
 
 // ErrRebootRequired indicates that a reboot is necessary for provisioning to
 // continue.
@@ -46,7 +52,57 @@ var ErrRebootRequired = errors.New("reboot required to continue provisioning")
 var mountFunc = unix.Mount
 var unmountFunc = unix.Unmount
 
-func setup(rootDir, dockerCredentialGCR string, systemd *systemdClient) error {
+func mountOptions(rootDir, mountPoint string) (uintptr, error) {
+	mountInfoFile, err := os.Open(filepath.Join(rootDir, "proc/self/mountinfo"))
+	if err != nil {
+		return 0, err
+	}
+	defer mountInfoFile.Close()
+	scanner := bufio.NewScanner(mountInfoFile)
+	var options string
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		if len(fields) < 6 {
+			return 0, fmt.Errorf("invalid line in mountinfo: %q", scanner.Text())
+		}
+		if fields[4] == mountPoint {
+			options = fields[5]
+			break
+		}
+	}
+	if options == "" {
+		return 0, fmt.Errorf("mountpoint %q not found", mountPoint)
+	}
+	var parsedOptions uintptr
+	for _, opt := range strings.FieldsFunc(options, func(r rune) bool { return r == ',' }) {
+		// String representations of mount options are viewable here:
+		// https://github.com/torvalds/linux/blob/8404c9fbc84b741f66cff7d4934a25dd2c344452/fs/proc_namespace.c#L66
+		//
+		// "ro" vs "rw" is special cased:
+		// https://github.com/torvalds/linux/blob/8404c9fbc84b741f66cff7d4934a25dd2c344452/fs/proc_namespace.c#L159
+		switch opt {
+		case "nosuid":
+			parsedOptions |= unix.MS_NOSUID
+		case "nodev":
+			parsedOptions |= unix.MS_NODEV
+		case "noexec":
+			parsedOptions |= unix.MS_NOEXEC
+		case "noatime":
+			parsedOptions |= unix.MS_NOATIME
+		case "nodiratime":
+			parsedOptions |= unix.MS_NODIRATIME
+		case "relatime":
+			parsedOptions |= unix.MS_RELATIME
+		case "nosymfollow":
+			parsedOptions |= unix.MS_NOSYMFOLLOW
+		case "ro":
+			parsedOptions |= unix.MS_RDONLY
+		}
+	}
+	return parsedOptions, nil
+}
+
+func setup(runState *state, rootDir string, systemd *systemdClient) error {
 	log.Println("Setting up environment...")
 	if err := systemd.stop("update-engine.service"); err != nil {
 		return err
@@ -54,7 +110,37 @@ func setup(rootDir, dockerCredentialGCR string, systemd *systemdClient) error {
 	if err := mountFunc("tmpfs", filepath.Join(rootDir, "root"), "tmpfs", 0, ""); err != nil {
 		return fmt.Errorf("error mounting tmpfs at /root: %v", err)
 	}
-	cmd := exec.Command(dockerCredentialGCR, "configure-docker")
+	binPath := filepath.Join(runState.dir, "bin")
+	dockerCredentialGCRPath := filepath.Join(binPath, "docker-credential-gcr")
+	if _, err := os.Stat(binPath); os.IsNotExist(err) {
+		if err := os.Mkdir(binPath, 0744); err != nil {
+			return err
+		}
+	}
+	if _, err := os.Stat(dockerCredentialGCRPath); os.IsNotExist(err) {
+		if err := ioutil.WriteFile(dockerCredentialGCRPath, dockerCredentialGCR, 0744); err != nil {
+			return err
+		}
+	}
+	// docker-credential-gcr will complain if docker-credential-gcr is not in the
+	// PATH
+	pathVar := os.Getenv("PATH")
+	if err := os.Setenv("PATH", binPath+":"+pathVar); err != nil {
+		return fmt.Errorf("could not update PATH environment variable: %v", err)
+	}
+	// Ensure that docker-credential-gcr is on an executable mount
+	if err := mountFunc(binPath, binPath, "ext4", unix.MS_BIND, ""); err != nil {
+		return fmt.Errorf("error bind mounting %q: %v", dockerCredentialGCRPath, err)
+	}
+	opts, err := mountOptions(rootDir, binPath)
+	if err != nil {
+		return err
+	}
+	if err := mountFunc("", binPath, "", unix.MS_REMOUNT|unix.MS_BIND|opts&^unix.MS_NOEXEC, ""); err != nil {
+		return fmt.Errorf("error remounting %q as executable: %v", dockerCredentialGCRPath, err)
+	}
+	// Run docker-credential-gcr
+	cmd := exec.Command(dockerCredentialGCRPath, "configure-docker")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -123,6 +209,10 @@ func cleanupDir(dir string) error {
 
 func cleanup(rootDir, stateDir string) error {
 	log.Println("Cleaning up machine state...")
+	binPath := filepath.Join(stateDir, "bin")
+	if err := unmountFunc(binPath, 0); err != nil {
+		return fmt.Errorf("error unmounting %q: %v", binPath, err)
+	}
 	if err := os.RemoveAll(stateDir); err != nil {
 		return err
 	}
@@ -187,8 +277,6 @@ type Deps struct {
 	TarCmd string
 	// SystemctlCmd is used to access systemd.
 	SystemctlCmd string
-	// DockerCredentialGCR is the path to the docker-credential-gcr binary.
-	DockerCredentialGCR string
 	// RootdevCmd is the path to the rootdev binary.
 	RootdevCmd string
 	// CgptCmd is the path to the cgpt binary.
@@ -207,7 +295,7 @@ func run(deps Deps, runState *state) (err error) {
 	if err := repartitionBootDisk(deps, runState); err != nil {
 		return err
 	}
-	if err := setup(deps.RootDir, deps.DockerCredentialGCR, systemd); err != nil {
+	if err := setup(runState, deps.RootDir, systemd); err != nil {
 		return err
 	}
 	if err := executeSteps(runState); err != nil {
