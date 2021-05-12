@@ -15,6 +15,7 @@
 package provisioner
 
 import (
+	"context"
 	"log"
 
 	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/tools"
@@ -22,7 +23,7 @@ import (
 
 type DisableAutoUpdateStep struct{}
 
-func (s *DisableAutoUpdateStep) run(runState *state) error {
+func (s *DisableAutoUpdateStep) run(ctx context.Context, runState *state, deps *stepDeps) error {
 	log.Println("Disabling auto updates")
 	if err := tools.DisableSystemdService("update-engine.service"); err != nil {
 		return err

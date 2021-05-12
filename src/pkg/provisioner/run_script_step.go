@@ -15,6 +15,7 @@
 package provisioner
 
 import (
+	"context"
 	"errors"
 	"log"
 	"os"
@@ -40,7 +41,7 @@ func (s *RunScriptStep) validate() error {
 	return nil
 }
 
-func (s *RunScriptStep) run(runState *state) error {
+func (s *RunScriptStep) run(ctx context.Context, runState *state, deps *stepDeps) error {
 	if err := s.validate(); err != nil {
 		return err
 	}

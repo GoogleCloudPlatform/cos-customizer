@@ -382,6 +382,23 @@ space will be used by the OEM partition if extended and the stateful partition.
 
 Note that this feature is supported by COS versions higher than milestone 73 (included).
 
+#### anthos-installer-install
+
+The `anthos-installer-install` build step installs the application binaries such as
+kubernetes, crictl and node-problem-detector on the builder VM based on the package
+spec in YAML format using the Anthos installer. Sample package spec is [here](testing/install_packages_test/pkgspec/kubernetes.yaml). 
+This step takes one flag, `pkgspec-dir`, path to the directory containing the pkgspec files.
+
+The Anthos Installer is limited to the fact that it doesn’t check the compatibility or
+the dependencies of the input packages on COS. The Anthos Installer works on the assumption
+that the dependencies are installed on the OS or fully specified by the YAML file.  
+
+An example `anthos-installer-install` step looks like the following:
+
+    - name: 'gcr.io/cos-cloud/cos-customizer'
+      args: ['anthos-installer-install',
+             '-pkgspec-dir=testing/install_packages_test/pkgspec']
+
 # Contributor Docs
 
 ## Releasing
