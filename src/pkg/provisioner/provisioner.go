@@ -246,7 +246,7 @@ func cleanup(rootDir, stateDir string) error {
 	return nil
 }
 
-func executeSteps(s *state) error {
+func executeSteps(ctx context.Context, s *state, deps stepDeps) error {
 	for i, step := range s.data.Config.Steps {
 		// In the case where executeSteps runs after a reboot, we need to skip
 		// through all the steps that have already been completed.
@@ -257,7 +257,7 @@ func executeSteps(s *state) error {
 		if err != nil {
 			return fmt.Errorf("error parsing step %d: %v", i, err)
 		}
-		if err := abstractStep.run(s); err != nil {
+		if err := abstractStep.run(ctx, s, &deps); err != nil {
 			return fmt.Errorf("error in step %d: %v", i, err)
 		}
 		// Persist our most recent completed step to disk, so we can resume after a reboot.
@@ -290,7 +290,7 @@ type Deps struct {
 	RootDir string
 }
 
-func run(deps Deps, runState *state) (err error) {
+func run(ctx context.Context, deps Deps, runState *state) (err error) {
 	systemd := &systemdClient{systemctl: deps.SystemctlCmd}
 	if err := repartitionBootDisk(deps, runState); err != nil {
 		return err
@@ -298,7 +298,8 @@ func run(deps Deps, runState *state) (err error) {
 	if err := setup(runState, deps.RootDir, systemd); err != nil {
 		return err
 	}
-	if err := executeSteps(runState); err != nil {
+	stepDeps := stepDeps{GCSClient: deps.GCSClient}
+	if err := executeSteps(ctx, runState, stepDeps); err != nil {
 		return err
 	}
 	if err := stopServices(systemd); err != nil {
@@ -320,7 +321,7 @@ func Run(ctx context.Context, deps Deps, stateDir string, c Config) error {
 	if err != nil {
 		return err
 	}
-	return run(deps, runState)
+	return run(ctx, deps, runState)
 }
 
 // Resume resumes provisioning from the state provided at stateDir.
@@ -330,5 +331,5 @@ func Resume(ctx context.Context, deps Deps, stateDir string) (err error) {
 	if err != nil {
 		return err
 	}
-	return run(deps, runState)
+	return run(ctx, deps, runState)
 }

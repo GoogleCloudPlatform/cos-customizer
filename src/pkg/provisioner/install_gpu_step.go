@@ -15,6 +15,7 @@
 package provisioner
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -92,7 +93,7 @@ func (s *InstallGPUStep) runInstaller(path string) error {
 	return nil
 }
 
-func (s *InstallGPUStep) run(runState *state) error {
+func (s *InstallGPUStep) run(ctx context.Context, runState *state, deps *stepDeps) error {
 	if err := s.validate(); err != nil {
 		return err
 	}

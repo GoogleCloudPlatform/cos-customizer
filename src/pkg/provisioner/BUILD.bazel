@@ -49,6 +49,8 @@ go_library(
         "gpu_setup_script.go",
         "install_gpu_step.go",
         "provisioner.go",
+        "anthos_installer_install_script.go",
+        "install_packages_step.go",
         "run_script_step.go",
         "seal_oem_step.go",
         "state.go",
