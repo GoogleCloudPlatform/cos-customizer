@@ -98,6 +98,13 @@ func parseStep(stepType string, stepArgs json.RawMessage) (step, error) {
 		return &DisableAutoUpdateStep{}, nil
 	case "SealOEM":
 		return &SealOEMStep{}, nil
+	case "InstallPackages":
+		var s step
+		s = &InstallPackagesStep{}
+		if err := json.Unmarshal(stepArgs, s); err != nil {
+			return nil, err
+		}
+		return s, nil
 	default:
 		return nil, fmt.Errorf("unknown step type: %q", stepType)
 	}

@@ -67,6 +67,7 @@ func main() {
 	subcommands.Register(new(SealOEM), "")
 	subcommands.Register(new(DisableAutoUpdate), "")
 	subcommands.Register(new(FinishImageBuild), "")
+	subcommands.Register(new(InstallPkg), "")
 	flag.Parse()
 	ctx := context.Background()
 	files := fs.DefaultFiles(*persistentDir)
