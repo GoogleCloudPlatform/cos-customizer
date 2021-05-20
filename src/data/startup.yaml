@@ -21,6 +21,7 @@ write_files:
 - path: /tmp/startup.sh
   permissions: 0644
   content: |
+    set +o history
     set -o errexit
     set -o pipefail
     set -o nounset
@@ -55,12 +56,15 @@ write_files:
         # serial logs, it will add the "DaisyEnd" metadata key. Let's wait for
         # that key to appear (and shutdown anyway after 5 minutes).
         /mnt/disks/cidata/metadata_watcher DaisyEnd
+        umount /mnt/disks/cidata
+        rm -r /mnt/disks || :
         shutdown -h now
         while true; do sleep 1; done
       fi
     }
 
     main() {
+      status history -c
       status mkdir -p /mnt/disks/cidata
       status mount /dev/disk/by-label/CIDATA /mnt/disks/cidata
       if [[ ! -d /var/lib/.cos-customizer ]]; then
@@ -92,3 +96,4 @@ runcmd:
 - echo "Starting startup service..."
 - systemctl daemon-reload
 - systemctl --no-block start customizer.service
+- rm /etc/systemd/system/customizer.service

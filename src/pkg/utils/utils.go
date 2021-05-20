@@ -60,3 +60,13 @@ func RunCommand(args []string, dir string, env []string) error {
 func QuoteForShell(str string) string {
 	return fmt.Sprintf("'%s'", strings.Replace(str, "'", "'\"'\"'", -1))
 }
+
+// StringSliceContains returns "true" if elem is in arr, "false" otherwise.
+func StringSliceContains(arr []string, elem string) bool {
+	for _, s := range arr {
+		if s == elem {
+			return true
+		}
+	}
+	return false
+}
