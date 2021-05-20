@@ -14,7 +14,7 @@
 
 substitutions:
   '_TEST': 'ubuntu_ova_test'
-  '_INPUT_IMAGE': 'https://cloud-images.ubuntu.com/bionic/20210501/bionic-server-cloudimg-amd64.ova'
+  '_INPUT_IMAGE': 'https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.ova'
 steps:
 # Build cos-customizer and tools container
 - name: 'gcr.io/cloud-builders/bazel'

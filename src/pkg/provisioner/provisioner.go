@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/GoogleCloudPlatform/cos-customizer/src/pkg/utils"
 	"golang.org/x/sys/unix"
 )
 
@@ -158,6 +159,11 @@ func stopServices(systemd *systemdClient) error {
 		"device_policy_manager.service",
 		"metrics-daemon.service",
 		"update-engine.service",
+		"systemd-random-seed.service",
+		"systemd-journald-audit.socket",
+		"systemd-journald-dev-log.socket",
+		"systemd-journald.socket",
+		"systemd-journald.service",
 	} {
 		if err := systemd.stop(s); err != nil {
 			return err
@@ -190,7 +196,7 @@ func zeroAllFiles(dir string) error {
 	})
 }
 
-func cleanupDir(dir string) error {
+func cleanupDir(dir string, exclude []string) error {
 	fileInfos, err := ioutil.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -200,8 +206,31 @@ func cleanupDir(dir string) error {
 		}
 	}
 	for _, fi := range fileInfos {
+		if utils.StringSliceContains(exclude, fi.Name()) {
+			continue
+		}
 		if err := os.RemoveAll(filepath.Join(dir, fi.Name())); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func cleanEtcSSH(rootDir string) error {
+	dir := filepath.Join(rootDir, "etc", "ssh")
+	fileInfos, err := ioutil.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		} else {
+			return err
+		}
+	}
+	for _, fi := range fileInfos {
+		if strings.HasPrefix(fi.Name(), "ssh_host_") {
+			if err := os.RemoveAll(filepath.Join(dir, fi.Name())); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -221,25 +250,46 @@ func cleanup(rootDir, stateDir string) error {
 		// which doesn't impact the final image output in any way
 		log.Printf("Non-fatal error unmounting tmpfs at /root: %v", err)
 	}
-	if err := os.RemoveAll(filepath.Join(rootDir, "mnt", "stateful_partition", "etc")); err != nil && !os.IsNotExist(err) {
+	// Files and directories to remove
+	for _, f := range []string{
+		filepath.Join(rootDir, "mnt", "stateful_partition", "etc"),
+		filepath.Join(rootDir, "etc", "docker", "key.json"),
+		filepath.Join(rootDir, "var", "lib", "systemd", "random-seed"),
+	} {
+		if err := os.RemoveAll(f); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	// Directories to remove contents of (but not the directory itself)
+	if err := cleanupDir(filepath.Join(rootDir, "var", "cache"), []string{"apt", "debconf"}); err != nil {
+		return err
+	}
+	if err := cleanupDir(filepath.Join(rootDir, "var", "lib", "systemd"), []string{"deb-systemd-helper-enabled"}); err != nil {
 		return err
 	}
 	for _, d := range []string{
-		filepath.Join(rootDir, "var", "cache"),
 		filepath.Join(rootDir, "var", "tmp"),
 		filepath.Join(rootDir, "var", "lib", "crash_reporter"),
 		filepath.Join(rootDir, "var", "lib", "metrics"),
-		filepath.Join(rootDir, "var", "lib", "systemd"),
 		filepath.Join(rootDir, "var", "lib", "update_engine"),
 		filepath.Join(rootDir, "var", "lib", "whitelist"),
+		filepath.Join(rootDir, "var", "lib", "cloud"),
+		filepath.Join(rootDir, "var", "log", "journal"),
+		filepath.Join(rootDir, "var", "log", "audit"),
+		filepath.Join(rootDir, "etc", "netplan"),
+		filepath.Join(rootDir, "tmp"),
 	} {
-		if err := cleanupDir(d); err != nil {
+		if err := cleanupDir(d, nil); err != nil {
 			return err
 		}
 	}
 	// There are a few files in /var/log that need to exist for daemons to work.
 	// The best way to clear logs is to zero them out instead of deleting them.
 	if err := zeroAllFiles(filepath.Join(rootDir, "var", "log")); err != nil {
+		return err
+	}
+	// /etc/ssh needs some special handling
+	if err := cleanEtcSSH(rootDir); err != nil {
 		return err
 	}
 	log.Println("Done cleaning up machine state")
