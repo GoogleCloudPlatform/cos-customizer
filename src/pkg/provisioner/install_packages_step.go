@@ -27,7 +27,7 @@ import (
 
 type InstallPackagesStep struct {
 	BuildContext                 string
-	PkgSpecDir                   string
+	PkgSpecURL                   string
 	AnthosInstallerDir           string
 	AnthosInstallerVersion       string
 	AnthosInstallerReleaseBucket string
@@ -54,9 +54,13 @@ func (ip *InstallPackagesStep) runInstaller(buildContext string) (err error) {
 	if err != nil {
 		return err
 	}
-	pkgSpecDir := filepath.Join(buildContext, ip.PkgSpecDir)
+	// if the given input PkgSpecURL is a valid URL then it i
+	pkgSpecURL := ip.PkgSpecURL
+	if !utils.CheckIfRemoteURL(ip.PkgSpecURL) {
+		pkgSpecURL = filepath.Join(buildContext, ip.PkgSpecURL)
+	}
 	if err := t.Execute(f, &InstallPackagesStep{
-		PkgSpecDir:             utils.QuoteForShell(pkgSpecDir),
+		PkgSpecURL:             utils.QuoteForShell(pkgSpecURL),
 		AnthosInstallerDir:     utils.QuoteForShell(ip.AnthosInstallerDir),
 		AnthosInstallerVersion: utils.QuoteForShell(ip.AnthosInstallerVersion),
 	}); err != nil {
@@ -66,7 +70,7 @@ func (ip *InstallPackagesStep) runInstaller(buildContext string) (err error) {
 }
 
 func (ip *InstallPackagesStep) run(ctx context.Context, runState *state, deps *stepDeps) error {
-	log.Printf("Installing Packages from the %s...", ip.PkgSpecDir)
+	log.Printf("Installing Packages from the %s...", ip.PkgSpecURL)
 	buildContext := filepath.Join(runState.dir, ip.BuildContext)
 	ip.setDefaultAnthosInstallerDir(runState.dir)
 	//set up the installer at the AnthosInstallerDir
@@ -78,6 +82,6 @@ func (ip *InstallPackagesStep) run(ctx context.Context, runState *state, deps *s
 	if err := ip.runInstaller(buildContext); err != nil {
 		return err
 	}
-	log.Printf("Done Installing the Packages from %s", ip.PkgSpecDir)
+	log.Printf("Done Installing the Packages from %s", ip.PkgSpecURL)
 	return nil
 }

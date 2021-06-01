@@ -27,14 +27,14 @@ import (
 )
 
 const (
-	anthosInstallerVersion       = "anthos_installer-linux-amd64-v0.0.1-6f0b777.tar.gz"
+	anthosInstallerVersion       = "anthos_installer-linux-amd64-v0.0.1-28c671a.tar.gz"
 	anthosInstallerReleaseBucket = "cos-anthos-builds-us"
 )
 
 // InstallPackage installs the packages based on thes
 // pkg-spec by the anthos-installer.
 type InstallPackage struct {
-	PkgSpecDir string
+	PkgSpecURL string
 }
 
 // Name implements subcommands.Command.Name.
@@ -55,7 +55,7 @@ func (ip *InstallPackage) Usage() string {
 
 // SetFlags implements subcommands.Command.SetFlags.
 func (ip *InstallPackage) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&ip.PkgSpecDir, "pkgspec-dir", "", "Path to the directory that has the package spec.")
+	f.StringVar(&ip.PkgSpecURL, "pkgspec-url", "", "URL path that points to the package spec.")
 }
 
 // Execute implements subcommands.Command.Execute. It configures the current image build process to
@@ -70,7 +70,7 @@ func (ip *InstallPackage) Execute(ctx context.Context, f *flag.FlagSet, args ...
 		log.Panic("InstallPackage expects *fs.Files")
 	}
 
-	if ip.PkgSpecDir == "" {
+	if ip.PkgSpecURL == "" {
 		log.Printf("Required package spec is not provided for %s step\n", ip.Name())
 		return subcommands.ExitFailure
 	}
@@ -83,7 +83,7 @@ func (ip *InstallPackage) Execute(ctx context.Context, f *flag.FlagSet, args ...
 
 	buf, err := json.Marshal(&provisioner.InstallPackagesStep{
 		BuildContext:                 "user",
-		PkgSpecDir:                   ip.PkgSpecDir,
+		PkgSpecURL:                   ip.PkgSpecURL,
 		AnthosInstallerReleaseBucket: anthosInstallerReleaseBucket,
 		AnthosInstallerVersion:       anthosInstallerVersion,
 	})

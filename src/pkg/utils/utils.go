@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -69,4 +70,13 @@ func StringSliceContains(arr []string, elem string) bool {
 		}
 	}
 	return false
+}
+
+// CheckIfRemoteURL returns "true" if filePath is a remote file
+func CheckIfRemoteURL(filePath string) bool {
+	p, err := url.Parse(filePath)
+	if err != nil {
+		return false
+	}
+	return p.Scheme == "http" || p.Scheme == "https" || p.Scheme == "gs"
 }
