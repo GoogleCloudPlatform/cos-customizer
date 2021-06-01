@@ -13,12 +13,17 @@
 # limitations under the License.
 
 substitutions:
-  '_TEST': 'install_packages_test'
+  '_TEST': 'install_packages_remote_pkgspec_test'
   '_INPUT_IMAGE': 'cos-85-13310-1260-8'
   '_INPUT_PROJECT': 'cos-cloud'
+  '_INPUT_PKGSPEC_FILE': 'kubernetes_pkg_spec.tar.gz'
+  '_INPUT_PKGSPEC': 'testing/install_packages_remote_pkgspec_test/kubernetes_pkg_spec.tar.gz'
+
 steps:
 - name: 'gcr.io/cloud-builders/bazel'
   args: ['run', '--spawn_strategy=standalone', ':cos_customizer', '--', '--norun']
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: [ "-m", "cp", "${_INPUT_PKGSPEC}", "gs://${PROJECT_ID}_cloudbuild/" ]
 - name: 'bazel:cos_customizer'
   args: ['start-image-build',
          '-build-context=testing/${_TEST}',
@@ -28,7 +33,9 @@ steps:
          '-gcs-workdir=customizer-$BUILD_ID']
 - name: 'bazel:cos_customizer'
   args: ['anthos-installer-install',
-         '-pkgspec-url=pkgspec']
+         '-pkgspec-url=gs://${PROJECT_ID}_cloudbuild/${_INPUT_PKGSPEC_FILE}']
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: [ "rm", "gs://${PROJECT_ID}_cloudbuild/${_INPUT_PKGSPEC_FILE}" ]
 - name: 'bazel:cos_customizer'
   args: ['finish-image-build',
          '-zone=us-west1-b',

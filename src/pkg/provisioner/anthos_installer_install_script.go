@@ -18,7 +18,7 @@ const anthosInstallerInstallTemplateScript = `#!/bin/bash
 
 set -o errexit
 
-export PACKAGE_SPEC_DIR={{.PkgSpecDir}}
+export PACKAGE_SPEC_DIR={{.PkgSpecURL}}
 export ANTHOS_INSTALLER_DIR={{.AnthosInstallerDir}}
 export ANTHOS_INSTALLER_VERSION={{.AnthosInstallerVersion}}
 export BIN_DIR={{.AnthosInstallerDir}}/bin
@@ -29,7 +29,7 @@ install_anthos_installer() {
 }
 
 install_packages() {
-	sudo ${BIN_DIR}/anthos_installer install -pkg-spec-dir=${PACKAGE_SPEC_DIR}
+	sudo ${BIN_DIR}/anthos_installer install -pkgspec-url=${PACKAGE_SPEC_DIR}
 	echo "Successfully installed the packages"
 }
 

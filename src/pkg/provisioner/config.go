@@ -78,7 +78,9 @@ type Config struct {
 	// Type: InstallPackages
 	// Args:
 	// - BuildContext: the name of the build context the package spec is present.
-	// - PkgSpecDir: path to the directory that has the package spec.
+	// - PkgSpecURL: URL to the directory that has the package spec.
+	// PkgSpecURL can be a archive of the pkgspec files. It supports downloading of
+	// PkgSpec from http/https, GCS bucket or path to the local directory/archive.
 	// - AnthosInstallerDir: working directory path where the Anthos Installer is downloaded
 	// and installed to install the application packages.
 	// - AnthosInstallerVersion: the AnthosInstaller binary version to be used to install
