@@ -34,8 +34,6 @@ steps:
 - name: 'bazel:cos_customizer'
   args: ['anthos-installer-install',
          '-pkgspec-url=gs://${PROJECT_ID}_cloudbuild/${_INPUT_PKGSPEC_FILE}']
-- name: 'gcr.io/cloud-builders/gsutil'
-  args: [ "rm", "gs://${PROJECT_ID}_cloudbuild/${_INPUT_PKGSPEC_FILE}" ]
 - name: 'bazel:cos_customizer'
   args: ['finish-image-build',
          '-zone=us-west1-b',
@@ -47,6 +45,8 @@ steps:
   args: ["-project=$PROJECT_ID", "-zone=us-west1-b", "-var:image_name",
          "preload-test-$BUILD_ID", "-var:image_project", "$PROJECT_ID",
          "-var:test_cfg", "../${_TEST}/preload_test.cfg", "testing/util/run_test.wf.json"]
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ["rm", "gs://${PROJECT_ID}_cloudbuild/${_INPUT_PKGSPEC}" ]
 options:
   machineType: 'N1_HIGHCPU_32'
 timeout: '7200s'
