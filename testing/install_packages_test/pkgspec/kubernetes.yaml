@@ -18,8 +18,7 @@ distro: cos
 os: linux
 arch: amd64
 version: 1.19.0
-filename: kubernetes-server-linux-amd64.tar.gz
-remoteurl: gs://kubernetes-release/release/v1.19.0/
+remoteurl: gs://kubernetes-release/release/v1.19.0/kubernetes-server-linux-amd64.tar.gz
 installprefix:  /home/kubernetes
 digestalgo: sha256
 digest: 853904a632b3adbabcbc61e5d563447ed75b8408c0297515f65c6a3d2b46be42

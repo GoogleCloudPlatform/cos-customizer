@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
 	"text/template"
@@ -56,7 +57,7 @@ func (ip *InstallPackagesStep) runInstaller(buildContext string) (err error) {
 	}
 	// if the given input PkgSpecURL is a valid URL then it i
 	pkgSpecURL := ip.PkgSpecURL
-	if !utils.CheckIfRemoteURL(ip.PkgSpecURL) {
+	if !checkIfRemoteURL(ip.PkgSpecURL) {
 		pkgSpecURL = filepath.Join(buildContext, ip.PkgSpecURL)
 	}
 	if err := t.Execute(f, &InstallPackagesStep{
@@ -84,4 +85,13 @@ func (ip *InstallPackagesStep) run(ctx context.Context, runState *state, deps *s
 	}
 	log.Printf("Done Installing the Packages from %s", ip.PkgSpecURL)
 	return nil
+}
+
+// checkIfRemoteURL returns "true" if filePath is a remote file
+func checkIfRemoteURL(filePath string) bool {
+	p, err := url.Parse(filePath)
+	if err != nil {
+		return false
+	}
+	return p.Scheme == "http" || p.Scheme == "https" || p.Scheme == "gs"
 }
