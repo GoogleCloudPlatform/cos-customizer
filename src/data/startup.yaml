@@ -88,6 +88,7 @@ write_files:
     RemainAfterExit=yes
     User=root
     ExecStart=/bin/bash /tmp/startup.sh
+    ExecStopPost=/bin/bash -c 'rm /etc/systemd/system/customizer.service'
     StandardOutput=tty
     StandardError=tty
     TTYPath=/dev/ttyS2
@@ -96,4 +97,3 @@ runcmd:
 - echo "Starting startup service..."
 - systemctl daemon-reload
 - systemctl --no-block start customizer.service
-- rm /etc/systemd/system/customizer.service
