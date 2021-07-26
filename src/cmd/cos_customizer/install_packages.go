@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	anthosInstallerVersion       = "anthos_installer-linux-amd64-v0.0.1-96f78c3.tar.gz"
-	anthosInstallerReleaseBucket = "cos-anthos-builds-us"
+	anthosInstallerVersion       = "anthos_installer-linux-amd64-v0.0.1-6f32aca.tar.gz"
+	anthosInstallerReleaseBucket = "teratipally-share-bucket"
 )
 
 // InstallPackage installs the packages based on thes
