@@ -21,6 +21,7 @@ set -o errexit
 export PACKAGE_SPEC_DIR={{.PkgSpecURL}}
 export ANTHOS_INSTALLER_DIR={{.AnthosInstallerDir}}
 export ANTHOS_INSTALLER_VERSION={{.AnthosInstallerVersion}}
+export BUILD_CONTEXT_DIR={{.BuildContext}}
 export BIN_DIR={{.AnthosInstallerDir}}/bin
 
 install_anthos_installer() {
@@ -29,7 +30,7 @@ install_anthos_installer() {
 }
 
 install_packages() {
-	sudo ${BIN_DIR}/anthos_installer install -pkgspec-url=${PACKAGE_SPEC_DIR}
+	sudo ${BIN_DIR}/anthos_installer install -pkgspec-url=${PACKAGE_SPEC_DIR} -build-contextdir=${BUILD_CONTEXT_DIR}
 	echo "Successfully installed the packages"
 }
 
