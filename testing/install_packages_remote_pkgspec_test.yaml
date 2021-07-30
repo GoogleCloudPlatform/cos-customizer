@@ -46,7 +46,7 @@ steps:
          "preload-test-$BUILD_ID", "-var:image_project", "$PROJECT_ID",
          "-var:test_cfg", "../${_TEST}/preload_test.cfg", "testing/util/run_test.wf.json"]
 - name: 'gcr.io/cloud-builders/gsutil'
-  args: ["rm", "gs://${PROJECT_ID}_cloudbuild/${_INPUT_PKGSPEC}" ]
+  args: ["rm", "gs://${PROJECT_ID}_cloudbuild/kubernetes_pkg_spec.tar.gz" ]
 options:
   machineType: 'N1_HIGHCPU_32'
 timeout: '7200s'
