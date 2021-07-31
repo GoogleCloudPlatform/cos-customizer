@@ -410,6 +410,11 @@ An example with PkgSpec in GCS bucket.
           args: ['anthos-installer-install',
                  '-pkgspec-url=gs://test-bucket/pkgspec.tar.gz']
 
+The `anthos-installer-install` step can also be used to preload the containers.
+One such example is implemented in [preload-container.yaml](testing/install_packages_test/pkgspec/preload-container.yaml).
+It supports different loader options such as docker, containerd and crictl.
+
+
 # Contributor Docs
 
 ## Releasing
