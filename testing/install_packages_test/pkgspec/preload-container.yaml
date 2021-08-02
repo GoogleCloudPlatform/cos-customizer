@@ -1,0 +1,8 @@
+name: "calico-node"
+kind: container
+remoteurl: docker.io/calico/node
+distro: cos
+loader: docker
+filemap:
+- source: docker.io/calico/node:v3.11.2
+  type: container
